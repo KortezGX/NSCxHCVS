@@ -34,6 +34,16 @@
                 {{ session('msg') }}
             </div>
         @endif
+        {{-- 檢查 Session 裡有沒有名為 error 的提示 --}}
+        @if ($errors->any())
+            <div class="alert alert-danger">
+                <ul class="mb-0">
+                    @foreach ($errors->all() as $error)
+                        <li>{{ $error }}</li>
+                    @endforeach
+                </ul>
+            </div>
+        @endif
 
         @yield('content')
     </div>
