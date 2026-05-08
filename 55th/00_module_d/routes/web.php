@@ -48,5 +48,19 @@ Route::prefix('00_module_d')->group(function () {
             Route::put('/{publisher}', [PublisherController::class, 'update'])->name('update'); // 實際路徑為 PUT /00_module_d/publishers/{publisher}
             Route::get('/activate/{publisher}', [PublisherController::class, 'show'])->name('activate'); // 實際路徑為 PUT /00_module_d/publishers/activate/{publisher}
         });
+
+        // 出版社管理員相關的 routes
+        Route::prefix('managers')->name('managers.')->group(function () {
+            // 顯示出版社管理員列表的路由
+            Route::get('/', [AuthController::class, 'managers'])->name('index'); // 實際路徑為 GET /00_module_d/managers
+            // 新增出版社管理員的路由
+            Route::get('/new', [AuthController::class, 'create'])->name('create'); // 實際路徑為 GET /00_module_d/managers/create
+            Route::post('/', [AuthController::class, 'store'])->name('store'); // 實際路徑為 POST /00_module_d/managers
+            // 編輯出版社管理員的路由
+            Route::get('/edit/{manager}', [AuthController::class, 'edit'])->name('edit'); // 實際路徑為 GET /00_module_d/managers/{manager}
+            Route::put('/{manager}', [AuthController::class, 'update'])->name('update'); // 實際路徑為 PUT /00_module_d/managers/{manager}
+            // 刪除出版社管理員的路由
+            Route::delete('/{manager}', [AuthController::class, 'destroy'])->name('destroy'); // 實際路徑為 DELETE /00_module_d/managers/{manager}
+        });
     });
 });
