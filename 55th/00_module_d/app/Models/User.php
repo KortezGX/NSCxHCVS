@@ -43,4 +43,10 @@ class User extends Authenticatable
         // 'email_verified_at' => 'datetime', // 如果不使用 email 驗證，可以移除這行
         'password' => 'hashed', // 題目要求密碼加密 因此使用 Laravel 10 的 hashed 屬性
     ];
+
+    // 定義與 出版社的關聯 (多對一)
+    public function publisher()
+    {
+        return $this->belongsTo(Publisher::class);
+    }
 }
