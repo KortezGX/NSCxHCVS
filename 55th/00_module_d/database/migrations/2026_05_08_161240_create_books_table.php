@@ -25,6 +25,9 @@ return new class extends Migration
             // 重點：ISBN 需設為索引 (Index) 以利查詢效能，這是題目規範
             $table->string('isbn')->unique()->index();  // ISBN 編號，unique() 表示 ISBN 必須唯一，index() 表示建立索引以提升查詢效能
 
+            // 重點：新增一個欄位來儲存書籍多張封面圖片的路徑，允許為空
+            $table->json('images')->nullable();  // 書籍封面圖片的路徑，使用 JSON 格式儲存多張圖片的路徑，允許為空
+
             $table->boolean('is_hidden')->default(false); // 是否隱藏
 
             $table->timestamps();

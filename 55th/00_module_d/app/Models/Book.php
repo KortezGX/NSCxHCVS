@@ -14,4 +14,9 @@ class Book extends Model
     {
         return $this->belongsTo(Publisher::class);
     }
+
+    // 定義好圖片的格式 方便在 Controller 中直接使用 $book->images 來取得圖片路徑陣列
+    protected $casts = [
+        'images' => 'array', // 將 images 欄位轉換為陣列格式
+    ];
 }
