@@ -57,8 +57,18 @@ class AuthController extends Controller
 
         return response()->json([
             'success' => true,
-            'access_token' => $token,
-            'role' => $user->role
+            'data' => [
+                'token' => $token, // 欄位名改為 token
+                'user' => [
+                    'id'         => $user->id,
+                    'username'   => $user->username,
+                    'email'      => $user->email,
+                    'role'       => $user->role,
+                    // 回傳符合 ISO 8601 / JSON 規格的時間格式
+                    'created_at' => $user->created_at->toISOString(),
+                    'updated_at' => $user->updated_at->toISOString(),
+                ]
+            ]
         ]);
     }
 
