@@ -12,11 +12,19 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('albums', function (Blueprint $table) {
-            $table->id();
-            $table->string('title'); // 專輯標題
-            $table->string('artist'); // 專輯作家
-            $table->integer('release_year'); // 發佈年份
-            $table->timestamps();
+            $table->id(); // 專輯 ID (主鍵)
+
+            $table->string('title'); // 專輯名稱
+            $table->string('artist'); // 藝人/歌手名稱
+            $table->integer('release_year'); // 發行年份 (例如: 2026)
+            $table->string('genre'); // 音樂流派/風格 (例如: Pop, Rock)
+            $table->text('description')->nullable(); // 專輯描述 (允許為空)
+
+            // 建立這個專輯的管理員 ID (對應 users 表的 id)
+            $table->unsignedBigInteger('publisher_id');
+
+            $table->softDeletes(); // 軟刪除欄位 (會自動產生 deleted_at，用於題目要求的刪除功能)
+            $table->timestamps(); // 自動產生建立時間 (created_at) 與更新時間 (updated_at)
         });
     }
 
