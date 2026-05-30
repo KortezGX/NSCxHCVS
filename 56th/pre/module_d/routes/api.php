@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\Route;
 // 最外層引用用到的 Controller
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\AdminController;
+use App\Http\Controllers\AlbumController;
 // 最外層引用用到的 Middleware
 use App\Http\Middleware\CheckToken;
 use App\Http\Middleware\CheckAdmin;
@@ -34,6 +35,8 @@ Route::middleware([CheckToken::class])->group(function () {
         Route::put('/users/{user_id}', [AdminController::class, 'update']);
         Route::put('/users/{user_id}/ban', [AdminController::class, 'ban']);
         Route::put('/users/{user_id}/unban', [AdminController::class, 'unban']);
+
+        Route::post('/albums', [AlbumController::class, 'store']);
     });
 });
 

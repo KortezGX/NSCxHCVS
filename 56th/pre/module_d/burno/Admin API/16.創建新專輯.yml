@@ -1,0 +1,38 @@
+info:
+  name: 16.創建新專輯
+  type: http
+  seq: 5
+
+http:
+  method: POST
+  url: http://127.0.0.1:8000/api/albums
+  headers:
+    - name: Accept
+      value: application/json
+    - name: X-Authorization
+      value: Bearer 21232f297a57a5a743894a0e4a801fc3
+  body:
+    type: multipart-form
+    data:
+      - name: title
+        type: text
+        value: My New Album
+      - name: artist
+        type: text
+        value: My Band
+      - name: release_year
+        type: text
+        value: "2025"
+      - name: genre
+        type: text
+        value: Indie Rock
+      - name: description
+        type: text
+        value: This is the description of my new album.
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
