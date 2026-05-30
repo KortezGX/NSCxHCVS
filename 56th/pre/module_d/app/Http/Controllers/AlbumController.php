@@ -64,12 +64,45 @@ class AlbumController extends Controller
         //
     }
 
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, Album $album)
+    // 17. 更新專輯訊息 (PUT /api/albums/{album_id})
+    public function update(Request $request, $album_id)
     {
-        //
+        // [404 檢查] 確認資料庫是否有該專輯
+        $album = Album::find($album_id);
+
+        if (!$album) {
+            return response()->json(['success' => false, 'message' => 'Not Found'], 404);
+        }
+
+        // 1. 手動指派更新的欄位
+        $album->title       = $request->input('title');
+        $album->description = $request->input('description');
+
+        // 2. 儲存更新後的資料回資料庫
+        $album->save();
+
+        // 3. 取得該專輯的發布者資料 (利用我們定義好的 belongsTo 關聯)
+        $publisher = $album->publisher;
+
+        // 4. [200 成功] 回傳符合題目要求的 JSON 格式回應
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'id'           => $album->id,
+                'title'        => $album->title,
+                'artist'       => $album->artist,
+                'release_year' => $album->release_year,
+                'genre'        => $album->genre,
+                'description'  => $album->description,
+                'publisher'    => [
+                    'id'       => $publisher->id,
+                    'username' => $publisher->username,
+                    'email'    => $publisher->email,
+                ],
+                'created_at'   => $album->created_at->toISOString(),
+                'updated_at'   => $album->updated_at->toISOString(),
+            ]
+        ], 200);
     }
 
     /**

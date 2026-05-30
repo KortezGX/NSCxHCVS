@@ -37,12 +37,10 @@ Route::middleware([CheckToken::class])->group(function () {
         Route::put('/users/{user_id}/unban', [AdminController::class, 'unban']);
 
         Route::post('/albums', [AlbumController::class, 'store']);
+        Route::put('/albums/{album_id}', [AlbumController::class, 'update']);
     });
 });
 
 Route::any('{any}', function () {
-    return response()->json([
-        'success' => false,
-        'message' => 'Not Found'
-    ], 404);
+    return response()->json(['success' => false, 'message' => 'Not Found'], 404);
 })->where('any', '.*');
