@@ -21,6 +21,8 @@ use App\Http\Middleware\CheckAdmin;
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/register', [AuthController::class, 'register']);
 
+Route::get('/albums', [AlbumController::class, 'index']);
+
 // ==========================================
 // 2. 需要 Token 驗證的 API (使用寫好的 CheckToken)
 // ==========================================

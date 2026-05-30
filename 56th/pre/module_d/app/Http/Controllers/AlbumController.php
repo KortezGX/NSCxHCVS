@@ -7,12 +7,97 @@ use Illuminate\Http\Request;
 
 class AlbumController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
-    public function index()
+    // 3. 取得所有專輯 (GET /api/albums)
+    public function index(Request $request)
     {
-        //
+        // --- 1. 處理基本參數 ---
+        $limit = $request->query('limit', 10);
+        $cursor = $request->query('cursor');
+        $filter = $request->query('filter');
+        $yearRange = $request->query('year');
+        $lastId = 0;
+
+        if ($limit !== null) {
+            // 檢查條件：如果「不是數字」 或者 「數字小於 1」 或者 「數字大於 100」
+            if (!is_numeric($limit) || (int)$limit < 1 || (int)$limit > 100) {
+                return response()->json(['success' => false, 'message' => 'Invalid parameter'], 400);
+            }
+        }
+
+        // --- 2. 驗證並解析 Cursor（沿用 GET /api/users 的分頁邏輯） ---
+        if ($cursor) {
+            $cursorData = json_decode(base64_decode($cursor, true));
+            if (!$cursorData || !isset($cursorData->id)) {
+                return response()->json(['success' => false, 'message' => 'Invalid cursor'], 400);
+            }
+            $lastId = $cursorData->id;
+        }
+
+        // --- 3. 開始建立查詢（Query Builder） ---
+        // 【重要】：因為題目要求回傳 publisher，我們在這裡加上 with('publisher')，
+        // 這樣可以做到「預加載（Eager Loading）」，有效解決 N+1 問題，效能會非常好！
+        $query = Album::with('publisher')->where('id', '>', $lastId);
+
+        // 處理 filter 篩選 (例如 filter=A，代表 title 要 A 開頭)
+        if (!empty($filter)) {
+            $query->where('title', 'like', $filter . '%'); // MySQL 的 LIKE 'A%'
+        }
+
+        // 處理 year 區間篩選 (例如 year="1980-2000")
+        if (!empty($yearRange)) {
+            // 用 '-' 拆開成陣列
+            $years = explode('-', $yearRange);
+
+            if (count($years) === 2) {
+                $startYear = (int)$years[0];
+                $endYear = (int)$years[1];
+
+                // 使用 whereBetween 來尋找區間
+                $query->whereBetween('release_year', [$startYear, $endYear]);
+            }
+        }
+
+        // --- 4. 撈出資料（先排序後多撈一筆來判斷有沒有下一頁） ---
+        $albums = $query->orderBy('id', 'asc')->take($limit + 1)->get();
+
+        // --- 5. 判斷並切除多撈的資料 ---
+        $hasNextPage = $albums->count() > $limit;
+        if ($hasNextPage) {
+            $albums = $albums->take($limit);
+        }
+
+        // --- 6. 計算分頁游標（完全對齊你第 12 題的完美邏輯） ---
+        $nextCursor = null;
+        $prevCursor = null;
+
+        if ($hasNextPage && $albums->isNotEmpty()) {
+            $nextId = $albums->last()->id;
+            $nextCursor = base64_encode(json_encode(['id' => $nextId]));
+        }
+
+        if ($lastId > 0 && $albums->isNotEmpty()) {
+            $prevCursor = base64_encode(json_encode(['id' => $lastId - 1]));
+        }
+
+        // --- 7. 組裝符合題目要求的 Response 格式 ---
+        return response()->json([
+            'success' => true,
+            'data' => $albums->map(fn($album) => [
+                'id'           => $album->id,
+                'title'        => $album->title,
+                'artist'       => $album->artist,
+                'release_year' => $album->release_year,
+                'publisher'    => [
+                    'id'       => $album->publisher->id,
+                    'username' => $album->publisher->username,
+                    'email'    => $album->publisher->email,
+                ],
+            ]),
+            'meta' => [
+                'prev_cursor' => $prevCursor,
+                'next_cursor' => $nextCursor
+            ]
+        ], 200);
     }
 
     // 16. 創建新專輯 (POST /api/albums)
