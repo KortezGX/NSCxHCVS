@@ -121,4 +121,46 @@ class AdminController extends Controller
             ]
         ], 200);
     }
+
+    // 14. 封鎖使用者 (PUT /api/users/{user_id}/ban)
+    public function ban(Request $request, $user_id)
+    {
+        // 1. [400 檢查] 不能封鎖自己
+        // 先取得目前登入的使用者資料
+        $current_user = $request->input('current_user');
+
+        if ($current_user->id === (int) $user_id) {
+            return response()->json(['success' => false, 'message' => 'Cannot ban self'], 400);
+        }
+
+        // 2. [404 檢查] 檢查目標使用者是否存在
+        $user = User::find($user_id);
+
+        if (!$user) {
+            return response()->json(['success' => false, 'message' => 'User not found'], 404);
+        }
+
+        // 3. [403 檢查] 無法封鎖另一位管理員
+        // 檢查目標使用者的 role 是不是也是 admin
+        if ($user->role === 'admin') {
+            return response()->json(['success' => false, 'message' => 'Cannot ban another admin'], 403);
+        }
+
+        // 4. 通過所有檢查，執行封鎖更新
+        $user->is_banned = true; // 將封鎖狀態改為 true
+        $user->save(); // 儲存回資料庫
+
+        // 5. [200 成功] 回傳符合題目要求的 JSON 格式回應 (注意：範例回應不包含 created_at)
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'id' => $user->id,
+                'username' => $user->username,
+                'email' => $user->email,
+                'role' => $user->role,
+                'is_banned' => (bool) $user->is_banned, // 強制轉為 boolean 確保輸出 true
+                'updated_at' => $user->updated_at->toISOString(), // 時間格式帶 Z
+            ]
+        ], 200);
+    }
 }

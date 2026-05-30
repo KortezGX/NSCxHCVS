@@ -32,5 +32,6 @@ Route::middleware([CheckToken::class])->group(function () {
     Route::middleware([CheckAdmin::class])->group(function () {
         Route::get('/users', [AdminController::class, 'users']);
         Route::put('/users/{user_id}', [AdminController::class, 'update']);
+        Route::put('/users/{user_id}/ban', [AdminController::class, 'ban']);
     });
 });
