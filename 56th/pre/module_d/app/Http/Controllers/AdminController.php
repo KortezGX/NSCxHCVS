@@ -163,4 +163,33 @@ class AdminController extends Controller
             ]
         ], 200);
     }
+
+    // 15. 解除封鎖使用者 (PUT /api/users/{user_id}/unban)
+    public function unban(Request $request, $user_id)
+    {
+        // 1. [404 檢查] 檢查目標使用者是否存在
+        // 透過網址傳過來的 user_id 去資料庫尋找該名使用者
+        $user = User::find($user_id);
+
+        if (!$user) {
+            return response()->json(['success' => false, 'message' => 'User not found'], 404);
+        }
+
+        // 2. 執行解除封鎖更新
+        $user->is_banned = false; // 將封鎖狀態改為 false (解除封鎖)
+        $user->save(); // 儲存回資料庫
+
+        // 3. [200 成功] 回傳符合題目要求的 JSON 格式回應 (注意：範例回應同樣不包含 created_at)
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'id' => $user->id,
+                'username' => $user->username,
+                'email' => $user->email,
+                'role' => $user->role,
+                'is_banned' => (bool) $user->is_banned, // 強制轉為 boolean 確保輸出 false
+                'updated_at' => $user->updated_at->toISOString(), // 時間格式帶 Z
+            ]
+        ], 200);
+    }
 }
