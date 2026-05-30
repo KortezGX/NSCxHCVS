@@ -11,13 +11,17 @@ return new class extends Migration
      */
     public function up(): void
     {
+        // 只修改 Users 表即可
         Schema::create('users', function (Blueprint $table) {
             $table->id();
-            $table->string('name');
-            $table->string('email')->unique();
-            $table->timestamp('email_verified_at')->nullable();
-            $table->string('password');
-            $table->rememberToken();
+
+            $table->string('username')->unique();       // 題目登入、註冊與欄位皆使用 username
+            $table->string('email')->unique();          // 題目要求的 email 欄位
+            $table->string('password');                 // 密碼
+            $table->string('role')->default('user');    // 角色：admin, user
+            $table->boolean('is_banned')->default(false); // 是否被封鎖
+            $table->string('access_token')->nullable(); // 自訂用來存 MD5 token 的欄位
+
             $table->timestamps();
         });
 
