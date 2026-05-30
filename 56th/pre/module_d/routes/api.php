@@ -38,6 +38,7 @@ Route::middleware([CheckToken::class])->group(function () {
 
         Route::post('/albums', [AlbumController::class, 'store']);
         Route::put('/albums/{album_id}', [AlbumController::class, 'update']);
+        Route::delete('/albums/{album_id}', [AlbumController::class, 'destroy']);
     });
 });
 

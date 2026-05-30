@@ -67,24 +67,24 @@ class AlbumController extends Controller
     // 17. 更新專輯訊息 (PUT /api/albums/{album_id})
     public function update(Request $request, $album_id)
     {
-        // [404 檢查] 確認資料庫是否有該專輯
+        // 1. [404 檢查] 確認資料庫是否有該專輯
         $album = Album::find($album_id);
 
         if (!$album) {
             return response()->json(['success' => false, 'message' => 'Not Found'], 404);
         }
 
-        // 1. 手動指派更新的欄位
+        // 2. 手動指派更新的欄位
         $album->title       = $request->input('title');
         $album->description = $request->input('description');
 
-        // 2. 儲存更新後的資料回資料庫
+        // 3. 儲存更新後的資料回資料庫
         $album->save();
 
-        // 3. 取得該專輯的發布者資料 (利用我們定義好的 belongsTo 關聯)
+        // 4. 取得該專輯的發布者資料 (利用我們定義好的 belongsTo 關聯)
         $publisher = $album->publisher;
 
-        // 4. [200 成功] 回傳符合題目要求的 JSON 格式回應
+        // 5. [200 成功] 回傳符合題目要求的 JSON 格式回應
         return response()->json([
             'success' => true,
             'data' => [
@@ -105,11 +105,24 @@ class AlbumController extends Controller
         ], 200);
     }
 
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(Album $album)
+    // 18. 刪除專輯 (DELETE /api/albums/{album_id})
+    public function destroy($album_id)
     {
-        //
+        // 1. [404 檢查] 確認資料庫是否有該專輯
+        $album = Album::find($album_id);
+
+        // 如果找不到該專輯（或是它早就被軟刪除了），直接攔截並回傳 404
+        if (!$album) {
+            return response()->json(['success' => false, 'message' => 'Not Found'], 404);
+        }
+
+        // 2. 執行軟刪除
+        // 【提示】：因為 Model 有設定 SoftDeletes，這行在資料庫背後其實是執行 UPDATE，把 deleted_at 填上時間
+        $album->delete();
+
+        // 3. [200 成功] 回傳題目要求的 JSON 格式
+        return response()->json([
+            'success' => true
+        ], 200);
     }
 }
