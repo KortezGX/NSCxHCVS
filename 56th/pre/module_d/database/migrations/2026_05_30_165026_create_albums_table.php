@@ -20,7 +20,6 @@ return new class extends Migration
             $table->integer('release_year'); // 發行年份
             $table->string('genre'); // 音樂類型
             $table->text('description')->nullable(); // 專輯描述
-            $table->string('cover_image')->nullable(); // 封面圖片欄位
             $table->softDeletes(); // 支援軟刪除
 
             $table->timestamps();
