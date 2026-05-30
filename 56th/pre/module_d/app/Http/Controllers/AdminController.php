@@ -18,13 +18,30 @@ class AdminController extends Controller
         $cursor = $request->query('cursor');
         $lastId = 0; // 預設從 id = 0 開始撈
 
+        // 先判斷查詢的參數是否正確
+        if ($limit !== null) {
+            // 檢查條件：如果「不是數字」 或者 「數字小於 1」 或者 「數字大於 100」
+            if (!is_numeric($limit) || (int)$limit < 1 || (int)$limit > 100) {
+                return response()->json(['success' => false, 'message' => 'Invalid parameter'], 400);
+            }
+        }
+
         // 如果前端有傳 cursor，就把它解開拿到裡面的 id
         if ($cursor) {
-            $cursorData = json_decode(base64_decode($cursor, true)); // 加上 true，如果是無效的 cursor 會直接回傳 false
-            // 【關鍵判斷】：如果解不開，或者解開後裡面沒有 id，就是 Invalid cursor！
-            if (!$cursorData || !isset($cursorData->id)) {
+            // 1. 先解碼 Base64，第二個參數帶入 true 後，如果是無效的 cursor 會直接回傳 false
+            $decodedBase64 = base64_decode($cursor, true);
+
+            // 2. 轉成 JSON 物件
+            $cursorData = json_decode($decodedBase64);
+
+            // 【關鍵判斷】：
+            // 條件 A：$decodedBase64 === false 抓出「完全不是 Base64 格式的爛字串」
+            // 條件 B：!$cursorData 抓出「解開後不是合法 JSON 的字串」
+            // 條件 C：!isset($cursorData->id) 抓出「是 JSON 但裡面沒有 id 欄位」
+            if ($decodedBase64 === false || !$cursorData || !isset($cursorData->id)) {
                 return response()->json(['success' => false, 'message' => 'Invalid cursor'], 400);
             }
+
             // 檢查通過，順利拿到 id
             $lastId = $cursorData->id;
         }

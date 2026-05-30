@@ -26,10 +26,21 @@ class AlbumController extends Controller
 
         // --- 2. 驗證並解析 Cursor（沿用 GET /api/users 的分頁邏輯） ---
         if ($cursor) {
-            $cursorData = json_decode(base64_decode($cursor, true));
-            if (!$cursorData || !isset($cursorData->id)) {
+            // 1. 先解碼 Base64，第二個參數帶入 true 後，如果是無效的 cursor 會直接回傳 false
+            $decodedBase64 = base64_decode($cursor, true);
+
+            // 2. 轉成 JSON 物件
+            $cursorData = json_decode($decodedBase64);
+
+            // 【關鍵判斷】：
+            // 條件 A：$decodedBase64 === false 抓出「完全不是 Base64 格式的爛字串」
+            // 條件 B：!$cursorData 抓出「解開後不是合法 JSON 的字串」
+            // 條件 C：!isset($cursorData->id) 抓出「是 JSON 但裡面沒有 id 欄位」
+            if ($decodedBase64 === false || !$cursorData || !isset($cursorData->id)) {
                 return response()->json(['success' => false, 'message' => 'Invalid cursor'], 400);
             }
+
+            // 檢查通過，順利拿到 id
             $lastId = $cursorData->id;
         }
 
@@ -45,15 +56,34 @@ class AlbumController extends Controller
 
         // 處理 year 區間篩選 (例如 year="1980-2000")
         if (!empty($yearRange)) {
+            // 如果沒有破折號，直接算格式錯誤
+            if (!str_contains($yearRange, '-')) {
+                return response()->json(['success' => false, 'message' => 'Invalid year format'], 400);
+            }
+
             // 用 '-' 拆開成陣列
             $years = explode('-', $yearRange);
 
             if (count($years) === 2) {
+                // 關鍵檢查 1：檢查拆出來的兩邊是不是「純數字」（防禦 "abc" 或 "1990-abc"）
+                if (!is_numeric($years[0]) || !is_numeric($years[1])) {
+                    return response()->json(['success' => false, 'message' => 'Invalid year format'], 400);
+                }
+
                 $startYear = (int)$years[0];
                 $endYear = (int)$years[1];
 
+                // 關鍵檢查 2：檢查邏輯，開始年份不能大於結束年份（防禦 "2000-1990"）
+                if ($startYear > $endYear) {
+                    return response()->json(['success' => false, 'message' => 'Invalid year format'], 400);
+                }
+
                 // 使用 whereBetween 來尋找區間
                 $query->whereBetween('release_year', [$startYear, $endYear]);
+
+            } else {
+                // 關鍵檢查 3：如果 count($years) 不是 2（例如傳了 "1990-2000-2010" 這種怪東西）
+                return response()->json(['success' => false, 'message' => 'Invalid year format'], 400);
             }
         }
 
