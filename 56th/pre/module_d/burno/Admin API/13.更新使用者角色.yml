@@ -1,0 +1,26 @@
+info:
+  name: 13.更新使用者角色
+  type: http
+  seq: 2
+
+http:
+  method: PUT
+  url: http://127.0.0.1:8000/api/users/2
+  headers:
+    - name: Accept
+      value: application/json
+    - name: X-Authorization
+      value: Bearer 21232f297a57a5a743894a0e4a801fc3
+  body:
+    type: json
+    data: |-
+      {
+       "role": "admin"
+      }
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

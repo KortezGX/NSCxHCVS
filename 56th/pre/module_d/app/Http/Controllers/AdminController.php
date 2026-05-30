@@ -60,7 +60,7 @@ class AdminController extends Controller
         // 回傳 JSON 結果
         return response()->json([
             'success' => true,
-            'data' => $users->map(fn ($user) => [
+            'data' => $users->map(fn($user) => [
                 'id' => $user->id,
                 'username' => $user->username,
                 'email' => $user->email,
@@ -71,6 +71,53 @@ class AdminController extends Controller
             'meta' => [
                 'next_cursor' => $nextCursor,
                 'prev_cursor' => $prevCursor
+            ]
+        ], 200);
+    }
+
+    // 13. 更新使用者角色 (PUT /api/users/{user_id})
+    public function update(Request $request, $user_id)
+    {
+        // 1. [404] 檢查使用者是否存在
+        $user = User::find($user_id);
+
+        if (!$user) {
+            return response()->json(['success' => false, 'message' => 'User not found'], 404);
+        }
+
+        // 2. [409] 檢查該使用者是否已被封鎖 (is_banned)
+        if ($user->is_banned) {
+            return response()->json(['success' => false, 'message' => 'Banned user update failed'], 409);
+        }
+
+        // 3. [403] 檢查是否為最後一位管理員降級
+        // 觸發條件：目前使用者是 admin，且企圖改為非 admin 角色
+        if ($user->role === 'admin' && $request->input('role') !== 'admin') {
+
+            // 計算全系統目前的 admin 總數
+            $adminCount = User::where('role', 'admin')->count();
+
+            if ($adminCount <= 1) {
+                return response()->json(['success' => false, 'message' => 'Last admin demotion forbidden'], 403);
+            }
+        }
+
+        // 4. 通過所有檢查，執行更新
+        $user->role = $request->input('role');
+        $user->save();
+
+        // 5. [200] 回傳成功回應
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'id' => $user->id,
+                'username' => $user->username,
+                'email' => $user->email,
+                'role' => $user->role,
+                'is_banned' => (bool) $user->is_banned,
+                // 確保時間格式符合 ISO 8601 帶 Z
+                'created_at' => $user->created_at->toISOString(),
+                'updated_at' => $user->updated_at->toISOString(),
             ]
         ], 200);
     }
