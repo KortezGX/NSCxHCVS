@@ -14,3 +14,4 @@ use App\Http\Controllers\AuthController;
 // 1. 公開 API (訪客不用 Token 就能呼叫)
 // ==========================================
 Route::post('/login', [AuthController::class, 'login']);
+Route::post('/register', [AuthController::class, 'register']);

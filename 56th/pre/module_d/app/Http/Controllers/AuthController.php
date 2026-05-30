@@ -51,4 +51,54 @@ class AuthController extends Controller
             ]
         ]);
     }
+
+    // 2. 使用者註冊 (POST /api/register)
+    public function register(Request $request)
+    {
+        // 取得輸入的欄位
+        $username = $request->input('username');
+        $email = $request->input('email');
+        $password = $request->input('password');
+
+        // 認證失敗 : 缺少必要欄位
+        if (empty($username) || empty($email) || empty($password)) {
+            return response()->json(['success' => false, 'message' => 'Validation failed'], 400);
+        }
+
+        // 使用者名稱已被使用
+        $exists_user = User::where('username', $username)->first();
+        if ($exists_user) {
+            return response()->json(['success' => false, 'message' => 'Username already taken'], 409);
+        }
+
+        // 郵件已被使用
+        $exists_email = User::where('email', $email)->first();
+        if ($exists_email) {
+            return response()->json(['success' => false, 'message' => 'Email already taken'], 409);
+        }
+
+        // 一對一存入
+        $user = new User();
+        $user->username  = $username;
+        $user->email     = $email;
+        $user->password  = Hash::make($password);
+        $user->role      = 'user'; // 預設都是一般使用者
+        $user->is_banned = false;
+        $user->save();
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'user' => [
+                    'id'         => $user->id,
+                    'username'   => $user->username,
+                    'email'      => $user->email,
+                    'role'       => $user->role,
+                    // 轉換為題目要求的 2025-10-23T15:00:00.000Z 格式
+                    'created_at' => $user->created_at->toISOString(),
+                    'updated_at' => $user->updated_at->toISOString(),
+                ]
+            ]
+        ], 201);
+    }
 }
