@@ -101,4 +101,20 @@ class AuthController extends Controller
             ]
         ], 201);
     }
+
+    // 9. 使用者登出 (POST /api/logout)
+    public function logout(Request $request)
+    {
+        // 錯誤判定都在 CheckToken 的 middleware 做完了，這裡只需要清除資料庫 token 就好
+
+        // 從自訂的 Middleware 拿取抓到的當前使用者
+        $user = $request->input('current_user');
+
+        if ($user) {
+            $user->access_token = null; // 清空 Token
+            $user->save();
+        }
+
+        return response()->json(['success' => true]);
+    }
 }
