@@ -4,8 +4,10 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 // 最外層引用用到的 Controller
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\AdminController;
 // 最外層引用用到的 Middleware
 use App\Http\Middleware\CheckToken;
+use App\Http\Middleware\CheckAdmin;
 
 // Route::get('/user', function (Request $request) {
 //     return $request->user();
@@ -23,4 +25,11 @@ Route::post('/register', [AuthController::class, 'register']);
 // ==========================================
 Route::middleware([CheckToken::class])->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
+
+    // ==========================================
+    // 3. 管理員專屬 API (使用寫好的 CheckAdmin)
+    // ==========================================
+    Route::middleware([CheckAdmin::class])->group(function () {
+        Route::get('/users', [AdminController::class, 'users']);
+    });
 });
