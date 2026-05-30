@@ -141,12 +141,39 @@ class AlbumController extends Controller
         ], 201);
     }
 
-    /**
-     * Display the specified resource.
-     */
-    public function show(Album $album)
+    // 4. 取得專輯資訊 (GET /api/albums/{album_id})
+    public function show($album_id)
     {
-        //
+        // 1. [404 檢查] 用 ID 手動去資料庫找這張專輯
+        $album = Album::find($album_id);
+
+        // 如果找不到該專輯（或是它早就被軟刪除了），直接攔截並回傳 404
+        if (!$album) {
+            return response()->json(['success' => false, 'message' => 'Not Found'], 404);
+        }
+
+        // 2. 確定有這張專輯，透過 belongsTo 關聯拿到發布者資料
+        $publisher = $album->publisher;
+
+        // 3. [200 成功] 組裝成題目要求的單一物件格式 (注意：data 裡面直接是物件 {}，不是陣列 [])
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'id'           => $album->id,
+                'title'        => $album->title,
+                'artist'       => $album->artist,
+                'release_year' => $album->release_year,
+                'genre'        => $album->genre,
+                'description'  => $album->description,
+                'created_at'   => $album->created_at->toISOString(),
+                'updated_at'   => $album->updated_at->toISOString(),
+                'publisher'    => [
+                    'id'       => $publisher->id,
+                    'username' => $publisher->username,
+                    'email'    => $publisher->email,
+                ],
+            ]
+        ], 200);
     }
 
     // 17. 更新專輯訊息 (PUT /api/albums/{album_id})

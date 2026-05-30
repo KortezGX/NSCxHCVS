@@ -1,0 +1,21 @@
+info:
+  name: 4.取得專輯資訊
+  type: http
+  seq: 4
+
+http:
+  method: GET
+  url: http://127.0.0.1:8000/api/albums/12
+  headers:
+    - name: X-Authorization
+      value: Bearer 24c9e15e52afc47c225b757e7bee1f9d
+      disabled: true
+    - name: X-Authorization
+      value: Bearer 21232f297a57a5a743894a0e4a801fc3
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

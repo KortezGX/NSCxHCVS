@@ -22,6 +22,7 @@ Route::post('/login', [AuthController::class, 'login']);
 Route::post('/register', [AuthController::class, 'register']);
 
 Route::get('/albums', [AlbumController::class, 'index']);
+Route::get('/albums/{album_id}', [AlbumController::class, 'show']);
 
 // ==========================================
 // 2. 需要 Token 驗證的 API (使用寫好的 CheckToken)
