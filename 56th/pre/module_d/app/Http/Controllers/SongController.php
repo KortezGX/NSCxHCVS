@@ -119,4 +119,29 @@ class SongController extends Controller
     {
         //
     }
+
+    public function showCover($song_id)
+    {
+        // 1. 尋找歌曲
+        $song = Song::find($song_id);
+
+        // [404 檢查] 找不到歌曲，或該歌曲根本沒上傳過圖片路徑
+        if (!$song || !$song->cover_image_path) {
+            return response()->json(['success' => false, 'message' => 'Cover Not Found'], 404);
+        }
+
+        // 2. 取得實體檔案的絕對路徑，19 題會把圖片路徑存在 storage 裡。
+        // 註：Laravel 11+ 預設 store() 會存在 storage/app/private/
+        $filePath = storage_path('app/private/' . $song->cover_image_path);
+
+        // 檢查硬碟裡是不是真的有這個檔案
+        if (!file_exists($filePath)) {
+            return response()->json(['success' => false, 'message' => 'File Not Found'], 404);
+        }
+
+        // 3. 把實體圖檔轉成二進位流吐給前端（瀏覽器會直接顯示成圖片）
+        return response()->file($filePath, [
+            'Content-Type' => 'image/jpeg' // 確保對齊題目要求的 image/jpeg
+        ]);
+    }
 }
