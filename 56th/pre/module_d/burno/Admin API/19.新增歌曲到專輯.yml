@@ -1,0 +1,41 @@
+info:
+  name: 19.新增歌曲到專輯
+  type: http
+  seq: 8
+
+http:
+  method: POST
+  url: http://127.0.0.1:8000/api/albums/1/songs
+  headers:
+    - name: Accept
+      value: application/json
+    - name: X-Authorization
+      value: Bearer 21232f297a57a5a743894a0e4a801fc3
+  body:
+    type: multipart-form
+    data:
+      - name: title
+        type: text
+        value: My First Song
+      - name: duration_seconds
+        type: text
+        value: "180"
+      - name: label
+        type: text
+        value: 搖滾,流行
+      - name: lyrics
+        type: text
+        value: Lyrics for the first song...
+      - name: cover_image
+        type: text
+        value: ""
+      - name: Is_cover
+        type: text
+        value: "false"
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5
