@@ -29,6 +29,8 @@ return new class extends Migration
             // 存圖片在 storage 的實體路徑
             $table->string('cover_image_path')->nullable();
 
+            $table->softDeletes(); // 支援軟刪除
+
             $table->timestamps();
         });
     }

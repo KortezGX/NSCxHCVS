@@ -120,6 +120,7 @@ class SongController extends Controller
         //
     }
 
+    // 8.取得歌曲封面圖片 (GET /api/songs/{song_id}/cover)
     public function showCover($song_id)
     {
         // 1. 尋找歌曲
