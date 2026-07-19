@@ -120,6 +120,74 @@ class SongController extends Controller
         ], 201);
     }
 
+    // 7. 取得所有歌曲 (GET /api/songs)
+    public function all(Request $request)
+    {
+        $limit = $request->query('limit', 10);
+        $cursor = $request->query('cursor');
+        $keyword = $request->query('keyword');
+        $lastId = 0;
+
+        // [400] limit 不是數字，或超出 1~100
+        if ($limit !== null && (!is_numeric($limit) || (int)$limit < 1 || (int)$limit > 100)) {
+            return response()->json(['success' => false, 'message' => 'Invalid parameter'], 400);
+        }
+
+        // 解析 cursor（跟其他分頁 API 同一套邏輯）
+        if ($cursor) {
+            $decodedBase64 = base64_decode($cursor, true);
+            $cursorData = json_decode($decodedBase64);
+
+            if ($decodedBase64 === false || !$cursorData || !isset($cursorData->id)) {
+                return response()->json(['success' => false, 'message' => 'Invalid cursor'], 400);
+            }
+
+            $lastId = $cursorData->id;
+        }
+
+        // with(['labels', 'album']) 預先撈好標籤跟專輯名稱，避免 map 裡面每首歌都各查一次 (N+1)
+        $query = Song::with(['labels', 'album'])->where('song_id', '>', $lastId);
+
+        // keyword 只用來比對歌名
+        if (!empty($keyword)) {
+            $query->where('title', 'like', '%' . $keyword . '%');
+        }
+
+        $songs = $query->orderBy('song_id', 'asc')->take($limit + 1)->get();
+
+        $hasNextPage = $songs->count() > $limit;
+        if ($hasNextPage) {
+            $songs = $songs->take($limit);
+        }
+
+        $nextCursor = null;
+        if ($hasNextPage && $songs->isNotEmpty()) {
+            $nextCursor = base64_encode(json_encode(['id' => $songs->last()->song_id]));
+        }
+
+        $prevCursor = null;
+        if ($lastId > 0 && $songs->isNotEmpty()) {
+            $prevCursor = base64_encode(json_encode(['id' => $lastId - 1]));
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => $songs->map(fn($song) => [
+                'id'               => $song->song_id,
+                'album_id'         => $song->album_id,
+                'title'            => $song->title,
+                'label'            => $song->label,
+                'duration_seconds' => $song->duration_seconds,
+                'album_title'      => $song->album->title,
+                'cover_image_url'  => $song->cover_image_url,
+            ]),
+            'meta' => [
+                'next_cursor' => $nextCursor,
+                'prev_cursor' => $prevCursor,
+            ]
+        ], 200);
+    }
+
     /**
      * Display the specified resource.
      */

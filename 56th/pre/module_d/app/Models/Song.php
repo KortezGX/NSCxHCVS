@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 // 先在最外層引用
 use Illuminate\Database\Eloquent\SoftDeletes; // 引入軟刪除功能
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class Song extends Model
@@ -24,6 +25,12 @@ class Song extends Model
     public function getCoverImageUrlAttribute()
     {
         return "/api/songs/{$this->song_id}/cover";
+    }
+
+    // 定義關聯：這首歌屬於哪一張專輯（GET /api/songs 要回傳 album_title 會用到）
+    public function album(): BelongsTo
+    {
+        return $this->belongsTo(Album::class, 'album_id', 'album_id');
     }
 
     // 曲風標籤改用 labels + song_labels 關聯表（對齊 SQL），不再用 JSON 欄位存

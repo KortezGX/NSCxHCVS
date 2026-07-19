@@ -1225,6 +1225,101 @@ Route::get('/albums/{album_id}/songs', [SongController::class, 'index']);
 
 ## 7. 取得所有歌曲 (GET /api/songs)
 
+跟 [3. 取得所有專輯](#3-取得所有專輯-get-apialbums) 用一樣的 cursor 分頁邏輯，多加一個 `keyword` 依歌名篩選。多了 `album_title` 欄位，所以 [Song.php](../app/Models/Song.php) 補上 `album()` 關聯。
+
+> app\Models\Song.php（新增這段關聯）
+>
+
+```php
+// 定義關聯：這首歌屬於哪一張專輯（GET /api/songs 要回傳 album_title 會用到）
+public function album(): BelongsTo
+{
+    return $this->belongsTo(Album::class, 'album_id', 'album_id');
+}
+```
+
+> app\Http\Controllers\SongController.php
+>
+
+```php
+// 7. 取得所有歌曲 (GET /api/songs)
+public function all(Request $request)
+{
+    $limit = $request->query('limit', 10);
+    $cursor = $request->query('cursor');
+    $keyword = $request->query('keyword');
+    $lastId = 0;
+
+    // [400] limit 不是數字，或超出 1~100
+    if ($limit !== null && (!is_numeric($limit) || (int)$limit < 1 || (int)$limit > 100)) {
+        return response()->json(['success' => false, 'message' => 'Invalid parameter'], 400);
+    }
+
+    // 解析 cursor（跟其他分頁 API 同一套邏輯）
+    if ($cursor) {
+        $decodedBase64 = base64_decode($cursor, true);
+        $cursorData = json_decode($decodedBase64);
+
+        if ($decodedBase64 === false || !$cursorData || !isset($cursorData->id)) {
+            return response()->json(['success' => false, 'message' => 'Invalid cursor'], 400);
+        }
+
+        $lastId = $cursorData->id;
+    }
+
+    // with(['labels', 'album']) 預先撈好標籤跟專輯名稱，避免 map 裡面每首歌都各查一次 (N+1)
+    $query = Song::with(['labels', 'album'])->where('song_id', '>', $lastId);
+
+    // keyword 只用來比對歌名
+    if (!empty($keyword)) {
+        $query->where('title', 'like', '%' . $keyword . '%');
+    }
+
+    $songs = $query->orderBy('song_id', 'asc')->take($limit + 1)->get();
+
+    $hasNextPage = $songs->count() > $limit;
+    if ($hasNextPage) {
+        $songs = $songs->take($limit);
+    }
+
+    $nextCursor = null;
+    if ($hasNextPage && $songs->isNotEmpty()) {
+        $nextCursor = base64_encode(json_encode(['id' => $songs->last()->song_id]));
+    }
+
+    $prevCursor = null;
+    if ($lastId > 0 && $songs->isNotEmpty()) {
+        $prevCursor = base64_encode(json_encode(['id' => $lastId - 1]));
+    }
+
+    return response()->json([
+        'success' => true,
+        'data' => $songs->map(fn($song) => [
+            'id'               => $song->song_id,
+            'album_id'         => $song->album_id,
+            'title'            => $song->title,
+            'label'            => $song->label,
+            'duration_seconds' => $song->duration_seconds,
+            'album_title'      => $song->album->title,
+            'cover_image_url'  => $song->cover_image_url,
+        ]),
+        'meta' => [
+            'next_cursor' => $nextCursor,
+            'prev_cursor' => $prevCursor,
+        ]
+    ], 200);
+}
+```
+
+> routes\api.php
+>
+
+```php
+Route::get('/songs', [SongController::class, 'all']);
+```
+
+**驗證：** 建立一張專輯（Love Album）跟兩首歌（Love Story / Other Song）後，`GET /api/songs` 兩首都正確回傳、`album_title` 正確帶出專輯名稱；`?keyword=love` 只篩出 `Love Story`；`?limit=abc` 正確回 400。測完把資料庫重置回乾淨狀態。
+
 ## 22. 自專輯刪除歌曲 (DELETE /api/albums/{album_id}/songs/{song_id})
 
 ## 10. 取得歌曲資訊 (GET /api/songs/{song_id})
