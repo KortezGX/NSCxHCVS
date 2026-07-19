@@ -176,8 +176,8 @@ public function login(Request $request)
                 'username'   => $user->username,
                 'email'      => $user->email,
                 'role'       => $user->role,
-                'created_at' => $user->created_at->toISOString(),
-                'updated_at' => $user->updated_at->toISOString(),
+                'created_at' => $user->created_at->format('Y-m-d\TH:i:s.v\Z'),
+                'updated_at' => $user->updated_at->format('Y-m-d\TH:i:s.v\Z'),
             ]
         ]
     ]);
@@ -210,8 +210,8 @@ public function register(Request $request)
     $email = $request->input('email');
     $password = $request->input('password');
 
-    // [400] 缺少必要欄位
-    if (empty($username) || empty($email) || empty($password)) {
+    // [400] 缺少必要欄位，或 email 格式不正確
+    if (empty($username) || empty($email) || empty($password) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
         return response()->json(['success' => false, 'message' => 'Validation failed'], 400);
     }
 
@@ -241,8 +241,8 @@ public function register(Request $request)
                 'username'   => $user->username,
                 'email'      => $user->email,
                 'role'       => $user->role,
-                'created_at' => $user->created_at->toISOString(),
-                'updated_at' => $user->updated_at->toISOString(),
+                'created_at' => $user->created_at->format('Y-m-d\TH:i:s.v\Z'),
+                'updated_at' => $user->updated_at->format('Y-m-d\TH:i:s.v\Z'),
             ]
         ]
     ], 201);
@@ -256,7 +256,7 @@ public function register(Request $request)
 Route::post('/register', [AuthController::class, 'register']);
 ```
 
-**簡化紀錄：** 密碼靠 `password_hash` 欄位的 `'hashed'` cast 自動雜湊，不用手動 `Hash::make()`。使用者名稱／Email 是否重複的檢查用 `->exists()`（只問有沒有，不用撈整筆資料）。
+**簡化紀錄：** 密碼靠 `password_hash` 欄位的 `'hashed'` cast 自動雜湊，不用手動 `Hash::make()`。使用者名稱／Email 是否重複的檢查用 `->exists()`（只問有沒有，不用撈整筆資料）。Email 格式用 `filter_var($email, FILTER_VALIDATE_EMAIL)` 驗證，跟必要欄位缺少共用同一個 400 判斷。
 
 ## 9. 使用者登出 (POST /api/logout)
 
@@ -316,8 +316,8 @@ public function users(Request $request)
         $lastId = $cursorData->id;
     }
 
-    // 多撈 1 筆，用來判斷還有沒有下一頁；排序、篩選都用 user_id（User 的主鍵）
-    $users = User::where('role', 'user')->where('user_id', '>', $lastId)->orderBy('user_id', 'asc')->take($limit + 1)->get();
+    // 題目要求「取得所有使用者」，所以不篩角色；多撈 1 筆用來判斷還有沒有下一頁，排序都用 user_id（User 的主鍵）
+    $users = User::where('user_id', '>', $lastId)->orderBy('user_id', 'asc')->take($limit + 1)->get();
 
     $hasNextPage = $users->count() > $limit;
     if ($hasNextPage) {
@@ -342,7 +342,7 @@ public function users(Request $request)
             'email' => $user->email,
             'role' => $user->role,
             'is_banned' => (bool) $user->is_banned,
-            'created_at' => $user->created_at->toISOString(),
+            'created_at' => $user->created_at->format('Y-m-d\TH:i:s.v\Z'),
         ]),
         'meta' => [
             'next_cursor' => $nextCursor,
@@ -380,6 +380,12 @@ public function update(Request $request, $user_id)
         return response()->json(['success' => false, 'message' => 'Banned user update failed'], 409);
     }
 
+    // [400] role 必須是合法的角色值，不然存進 DB 會撞 enum constraint
+    $allowedRoles = ['admin', 'publisher', 'user'];
+    if (!in_array($request->input('role'), $allowedRoles)) {
+        return response()->json(['success' => false, 'message' => 'Validation failed'], 400);
+    }
+
     // [403] 系統必須至少保留一位管理員：目前是 admin、且要被改成非 admin 時才檢查
     if ($user->role === 'admin' && $request->input('role') !== 'admin') {
         $adminCount = User::where('role', 'admin')->count();
@@ -400,8 +406,8 @@ public function update(Request $request, $user_id)
             'email' => $user->email,
             'role' => $user->role,
             'is_banned' => (bool) $user->is_banned,
-            'created_at' => $user->created_at->toISOString(),
-            'updated_at' => $user->updated_at->toISOString(),
+            'created_at' => $user->created_at->format('Y-m-d\TH:i:s.v\Z'),
+            'updated_at' => $user->updated_at->format('Y-m-d\TH:i:s.v\Z'),
         ]
     ], 200);
 }
@@ -453,7 +459,7 @@ public function ban(Request $request, $user_id)
             'email' => $user->email,
             'role' => $user->role,
             'is_banned' => (bool) $user->is_banned,
-            'updated_at' => $user->updated_at->toISOString(),
+            'updated_at' => $user->updated_at->format('Y-m-d\TH:i:s.v\Z'),
         ]
     ], 200);
 }
@@ -493,7 +499,7 @@ public function unban(Request $request, $user_id)
             'email' => $user->email,
             'role' => $user->role,
             'is_banned' => (bool) $user->is_banned,
-            'updated_at' => $user->updated_at->toISOString(),
+            'updated_at' => $user->updated_at->format('Y-m-d\TH:i:s.v\Z'),
         ]
     ], 200);
 }
@@ -567,21 +573,31 @@ public function store(Request $request)
     // 1. 取得目前登入的使用者資料 (從 Middleware 傳進來的)
     $current_user = $request->input('current_user');
 
-    // 2. 建立一個全新的空專輯物件
+    $title = $request->input('title');
+    $artist = $request->input('artist');
+    $releaseYear = $request->input('release_year');
+    $genre = $request->input('genre');
+
+    // 2. [400 驗證] 必要欄位缺少，或 release_year 不是數字
+    if (empty($title) || empty($artist) || empty($releaseYear) || empty($genre) || !is_numeric($releaseYear)) {
+        return response()->json(['success' => false, 'message' => 'Validation failed'], 400);
+    }
+
+    // 3. 建立一個全新的空專輯物件
     $album = new Album();
 
-    // 3. 一對一指派欄位資料
+    // 4. 一對一指派欄位資料
     $album->publisher_id = $current_user->user_id; // 將建立者設定為當前登入的管理員 ID
-    $album->title        = $request->input('title');
-    $album->artist       = $request->input('artist');
-    $album->release_year = (int) $request->input('release_year'); // 強制轉成整數符合型態
-    $album->genre        = $request->input('genre');
+    $album->title        = $title;
+    $album->artist       = $artist;
+    $album->release_year = (int) $releaseYear; // 強制轉成整數符合型態
+    $album->genre        = $genre;
     $album->description  = $request->input('description');
 
-    // 4. 儲存進資料庫
+    // 5. 儲存進資料庫
     $album->save();
 
-    // 5. [201 成功] 回傳符合題目要求的 JSON 格式與 201 狀態碼
+    // 6. [201 成功] 回傳符合題目要求的 JSON 格式與 201 狀態碼
     return response()->json([
         'success' => true,
         'data' => [
@@ -596,8 +612,8 @@ public function store(Request $request)
                 'username' => $current_user->username,
                 'email'    => $current_user->email,
             ],
-            'created_at'   => $album->created_at->toISOString(), // 時間格式帶 Z
-            'updated_at'   => $album->updated_at->toISOString(), // 時間格式帶 Z
+            'created_at'   => $album->created_at->format('Y-m-d\TH:i:s.v\Z'), // 時間格式帶 Z
+            'updated_at'   => $album->updated_at->format('Y-m-d\TH:i:s.v\Z'), // 時間格式帶 Z
         ]
     ], 201);
 }
@@ -632,8 +648,13 @@ public function update(Request $request, $album_id)
         return response()->json(['success' => false, 'message' => 'Not Found'], 404);
     }
 
-    $album->title       = $request->input('title');
-    $album->description = $request->input('description');
+    // 局部更新：只有帶了這個欄位才更新，沒帶的欄位維持原樣
+    if ($request->has('title')) {
+        $album->title = $request->input('title');
+    }
+    if ($request->has('description')) {
+        $album->description = $request->input('description');
+    }
     $album->save();
 
     $publisher = $album->publisher;
@@ -652,8 +673,8 @@ public function update(Request $request, $album_id)
                 'username' => $publisher->username,
                 'email'    => $publisher->email,
             ],
-            'created_at'   => $album->created_at->toISOString(),
-            'updated_at'   => $album->updated_at->toISOString(),
+            'created_at'   => $album->created_at->format('Y-m-d\TH:i:s.v\Z'),
+            'updated_at'   => $album->updated_at->format('Y-m-d\TH:i:s.v\Z'),
         ]
     ], 200);
 }
@@ -830,8 +851,8 @@ public function show($album_id)
             'release_year' => $album->release_year,
             'genre'        => $album->genre,
             'description'  => $album->description,
-            'created_at'   => $album->created_at->toISOString(),
-            'updated_at'   => $album->updated_at->toISOString(),
+            'created_at'   => $album->created_at->format('Y-m-d\TH:i:s.v\Z'),
+            'updated_at'   => $album->updated_at->format('Y-m-d\TH:i:s.v\Z'),
             'publisher'    => [
                 'id'       => $publisher->user_id,
                 'username' => $publisher->username,
@@ -989,84 +1010,100 @@ class Song extends Model
 // 19.新增歌曲到專輯 (POST /api/albums/{album_id}/songs)
 public function store(Request $request, $album_id)
 {
-  // 1. [404 檢查]
-  $album = Album::find($album_id);
-  if (!$album) {
-      return response()->json(['success' => false, 'message' => 'Not Found'], 404);
-  }
+    // 1. [404 檢查]
+    $album = Album::find($album_id);
+    if (!$album) {
+        return response()->json(['success' => false, 'message' => 'Not Found'], 404);
+    }
 
-  // 2. [400 驗證] 基本欄位檢查
-  if (!$request->has('title') || !$request->has('duration_seconds')) {
-      return response()->json(['success' => false, 'message' => 'Invalid parameter'], 400);
-  }
+    // 2. [400 驗證] 基本欄位檢查（body 欄位缺少/格式錯誤屬於 Validation failed，Invalid parameter 專屬查詢參數）
+    if (!$request->has('title') || !$request->has('duration_seconds')) {
+        return response()->json(['success' => false, 'message' => 'Validation failed'], 400);
+    }
 
-  // 3. 題目規範：驗證是否屬於這 8 大英文預設標籤（對齊 module_c_db.sql 的 labels 表）
-  $allowedLabels = ['Pop', 'Rock', 'Hip-Hop', 'Electronic', 'Jazz', 'Classical', 'Chill', 'Country'];
-  $finalLabels = [];
+    // 3. 題目規範：驗證是否屬於這 8 大英文預設標籤（對齊 module_c_db.sql 的 labels 表）
+    $allowedLabels = ['Pop', 'Rock', 'Hip-Hop', 'Electronic', 'Jazz', 'Classical', 'Chill', 'Country'];
+    $finalLabels = [];
 
-  if ($request->has('label') && !empty($request->input('label'))) {
-      // 依逗號拆開
-      $inputTags = explode(',', $request->input('label'));
+    if ($request->has('label') && !empty($request->input('label'))) {
+        // 依逗號拆開
+        $inputTags = explode(',', $request->input('label'));
 
-      foreach ($inputTags as $tag) {
-          $trimmedTag = trim($tag);
+        foreach ($inputTags as $tag) {
+            $trimmedTag = trim($tag);
 
-          // 不在 8 大預設標籤裡就噴 400
-          if (!in_array($trimmedTag, $allowedLabels)) {
-              return response()->json(['success' => false, 'message' => 'Invalid parameter'], 400);
-          }
+            // 不在 8 大預設標籤裡就噴 400
+            if (!in_array($trimmedTag, $allowedLabels)) {
+                return response()->json(['success' => false, 'message' => 'Validation failed'], 400);
+            }
 
-          if (!in_array($trimmedTag, $finalLabels)) {
-              $finalLabels[] = $trimmedTag;
-          }
-      }
-  }
+            if (!in_array($trimmedTag, $finalLabels)) {
+                $finalLabels[] = $trimmedTag;
+            }
+        }
+    }
 
-  // 4. 處理實體圖片上傳
-  $imagePath = null;
-  if ($request->hasFile('cover_image') && $request->file('cover_image')->isValid()) {
-      $imagePath = $request->file('cover_image')->store('covers');
-  }
+    // 4. 處理實體圖片上傳
+    $imagePath = null;
+    if ($request->hasFile('cover_image')) {
+        $coverImage = $request->file('cover_image');
 
-  // 算一下目前這張專輯有幾首歌，直接 +1。這樣就算資料庫沒給預設值也不會爆掉！
-  $currentSongsCount = Song::where('album_id', $album->album_id)->count();
-  $nextOrder = $currentSongsCount + 1;
+        // [400] 檔案必須上傳成功，且格式必須是圖片（getMimeType() 用 fileinfo 偵測實際二進位內容，不是看檔名或宣告的 Content-Type）
+        if (!$coverImage->isValid() || !str_starts_with($coverImage->getMimeType(), 'image/')) {
+            return response()->json(['success' => false, 'message' => 'Invalid file type'], 400);
+        }
 
-  // 5. 寫入資料庫
-  $song = new Song();
-  $song->album_id         = $album->album_id;
-  $song->title            = $request->input('title');
-  $song->duration_seconds = (int)$request->input('duration_seconds');
-  $song->lyrics           = $request->input('lyrics');
-  $song->track_order      = $nextOrder;
-  $song->view_count       = 0;
-  $song->is_cover         = $request->boolean('is_cover'); // Laravel 會自動把 "true"/"false" 字串轉成 boolean
-  $song->cover_image_path = $imagePath;
-  $song->save();
+        $imagePath = $coverImage->store('covers');
+    }
 
-  // 曲風標籤改存關聯表：查出名稱對應的 label_id，用 sync() 寫進 song_labels
-  if (!empty($finalLabels)) {
-      $song->labels()->sync(Label::whereIn('name', $finalLabels)->pluck('label_id'));
-  }
+    // [400] 題目規範：一張專輯最多只能有 3 張封面圖片組合
+    $isCover = $request->boolean('is_cover'); // Laravel 會自動把 "true"/"false" 字串轉成 boolean
+    if ($isCover) {
+        $currentCovers = Song::where('album_id', $album->album_id)->where('is_cover', true)->count();
+        if ($currentCovers >= 3) {
+            return response()->json(['success' => false, 'message' => 'Too many covers provided'], 400);
+        }
+    }
 
-  // 6. [201 Created] 回傳
-  return response()->json([
-      'success' => true,
-      'data' => [
-          'id'               => $song->song_id,
-          'album_id'         => $song->album_id,
-          'title'            => $song->title,
-          'duration_seconds' => $song->duration_seconds,
-          'lyrics'           => $song->lyrics,
-          'order'            => $song->track_order,
-          'view_count'       => $song->view_count,
-          'label'            => $song->label, // 由 Song::getLabelAttribute() 從關聯表組成純字串陣列
-          'is_cover'         => $song->is_cover,
-          'cover_image_url'  => $song->cover_image_url,
-          'created_at'       => $song->created_at->toISOString(),
-          'updated_at'       => $song->updated_at->toISOString(),
-      ]
-  ], 201);
+    // 算一下目前這張專輯有幾首歌，直接 +1。這樣就算資料庫沒給預設值也不會爆掉！
+    $currentSongsCount = Song::where('album_id', $album->album_id)->count();
+    $nextOrder = $currentSongsCount + 1;
+
+    // 5. 寫入資料庫
+    $song = new Song();
+    $song->album_id         = $album->album_id;
+    $song->title            = $request->input('title');
+    $song->duration_seconds = (int)$request->input('duration_seconds');
+    $song->lyrics           = $request->input('lyrics');
+    $song->track_order      = $nextOrder;
+    $song->view_count       = 0;
+    $song->is_cover         = $isCover;
+    $song->cover_image_path = $imagePath;
+    $song->save();
+
+    // 曲風標籤改存關聯表：查出名稱對應的 label_id，用 sync() 寫進 song_labels
+    if (!empty($finalLabels)) {
+        $song->labels()->sync(Label::whereIn('name', $finalLabels)->pluck('label_id'));
+    }
+
+    // 6. [201 Created] 回傳
+    return response()->json([
+        'success' => true,
+        'data' => [
+            'id'               => $song->song_id,
+            'album_id'         => $song->album_id,
+            'title'            => $song->title,
+            'duration_seconds' => $song->duration_seconds,
+            'lyrics'           => $song->lyrics,
+            'order'            => $song->track_order,
+            'view_count'       => $song->view_count,
+            'label'            => $song->label, // 由 Song::getLabelAttribute() 從關聯表組成純字串陣列
+            'is_cover'         => $song->is_cover,
+            'cover_image_url'  => $song->cover_image_url,
+            'created_at'       => $song->created_at->format('Y-m-d\TH:i:s.v\Z'),
+            'updated_at'       => $song->updated_at->format('Y-m-d\TH:i:s.v\Z'),
+        ]
+    ], 201);
 }
 ```
 
@@ -1218,7 +1255,8 @@ public function all(Request $request)
     }
 
     // with(['labels', 'album']) 預先撈好標籤跟專輯名稱，避免 map 裡面每首歌都各查一次 (N+1)
-    $query = Song::with(['labels', 'album'])->where('song_id', '>', $lastId);
+    // whereHas('album') 排除專輯已被軟刪除的孤兒歌曲，避免下面 $song->album->title 對 null 取屬性
+    $query = Song::with(['labels', 'album'])->whereHas('album')->where('song_id', '>', $lastId);
 
     // keyword 只用來比對歌名
     if (!empty($keyword)) {
@@ -1267,7 +1305,7 @@ public function all(Request $request)
 Route::get('/songs', [SongController::class, 'all']);
 ```
 
-**驗證：** 建立一張專輯（Love Album）跟兩首歌（Love Story / Other Song）後，`GET /api/songs` 兩首都正確回傳、`album_title` 正確帶出專輯名稱；`?keyword=love` 只篩出 `Love Story`；`?limit=abc` 正確回 400。測完把資料庫重置回乾淨狀態。
+**驗證：** 建立一張專輯（Love Album）跟兩首歌（Love Story / Other Song）後，`GET /api/songs` 兩首都正確回傳、`album_title` 正確帶出專輯名稱；`?keyword=love` 只篩出 `Love Story`；`?limit=abc` 正確回 400；把該專輯軟刪除後再打這支 API，底下的孤兒歌曲會被 `whereHas('album')` 排除，不會因為 `$song->album` 是 null 而噴 500。測完把資料庫重置回乾淨狀態。
 
 ## 22. 自專輯刪除歌曲 (DELETE /api/albums/{album_id}/songs/{song_id})
 
@@ -1341,8 +1379,8 @@ public function show($song_id)
             'is_cover'         => $song->is_cover,
             'lyrics'           => $song->lyrics,
             'cover_image_url'  => $song->cover_image_url,
-            'created_at'       => $song->created_at->toISOString(),
-            'updated_at'       => $song->updated_at->toISOString(),
+            'created_at'       => $song->created_at->format('Y-m-d\TH:i:s.v\Z'),
+            'updated_at'       => $song->updated_at->format('Y-m-d\TH:i:s.v\Z'),
         ],
     ], 200);
 }
@@ -1393,7 +1431,7 @@ public function update(Request $request, $album_id, $song_id)
             $trimmedTag = trim($tag);
 
             if (!in_array($trimmedTag, $allowedLabels)) {
-                return response()->json(['success' => false, 'message' => 'Invalid parameter'], 400);
+                return response()->json(['success' => false, 'message' => 'Validation failed'], 400);
             }
 
             if (!in_array($trimmedTag, $finalLabels)) {
@@ -1417,8 +1455,15 @@ public function update(Request $request, $album_id, $song_id)
     }
 
     // 有上傳新圖片才覆蓋，沒有就維持原本的封面
-    if ($request->hasFile('cover_image') && $request->file('cover_image')->isValid()) {
-        $song->cover_image_path = $request->file('cover_image')->store('covers');
+    if ($request->hasFile('cover_image')) {
+        $coverImage = $request->file('cover_image');
+
+        // [400] 檔案必須上傳成功，且格式必須是圖片
+        if (!$coverImage->isValid() || !str_starts_with($coverImage->getMimeType(), 'image/')) {
+            return response()->json(['success' => false, 'message' => 'Invalid file type'], 400);
+        }
+
+        $song->cover_image_path = $coverImage->store('covers');
     }
 
     $song->save();
@@ -1441,8 +1486,8 @@ public function update(Request $request, $album_id, $song_id)
             'label'            => $song->label,
             'is_cover'         => $song->is_cover,
             'cover_image_url'  => $song->cover_image_url,
-            'created_at'       => $song->created_at->toISOString(),
-            'updated_at'       => $song->updated_at->toISOString(),
+            'created_at'       => $song->created_at->format('Y-m-d\TH:i:s.v\Z'),
+            'updated_at'       => $song->updated_at->format('Y-m-d\TH:i:s.v\Z'),
         ],
     ], 200);
 }
@@ -1457,7 +1502,7 @@ Route::middleware([CheckAdmin::class])->group(function () {
 });
 ```
 
-**驗證：** 只帶 `title` 更新 → 只有 `title` 變、`label`/`duration_seconds` 維持原樣；只帶 `label` 更新 → 標籤正確被替換成新的一組；帶不在 8 大標籤內的值 → 正確回 400；用另一張專輯的 `album_id` 去改這首歌 → 正確回 404（防跨專輯竄改）；改不存在的 `song_id` → 正確回 404。測完把資料庫重置回乾淨狀態。
+**驗證：** 只帶 `title` 更新 → 只有 `title` 變、`label`/`duration_seconds` 維持原樣；只帶 `label` 更新 → 標籤正確被替換成新的一組；帶不在 8 大標籤內的值 → 正確回 400 `Validation failed`；上傳非圖片檔案當 `cover_image` → 正確回 400 `Invalid file type`（`getMimeType()` 用 fileinfo 偵測實際二進位內容，換成真正帶 JPEG 檔頭的檔案才會成功）；用另一張專輯的 `album_id` 去改這首歌 → 正確回 404（防跨專輯竄改）；改不存在的 `song_id` → 正確回 404。測完把資料庫重置回乾淨狀態。
 
 ## 20. 更新歌曲順序 (PUT /api/albums/{album_id}/songs/order)
 
@@ -1561,40 +1606,7 @@ public function showCover($album_id)
 }
 ```
 
-> app\Http\Controllers\SongController.php（第 19 題 `store`，新增於圖片上傳之後、寫入資料庫之前）
-
-```php
-// [400] 題目規範：一張專輯最多只能有 3 張封面圖片組合
-$isCover = $request->boolean('is_cover');
-if ($isCover) {
-    $currentCovers = Song::where('album_id', $album->album_id)->where('is_cover', true)->count();
-    if ($currentCovers >= 3) {
-        return response()->json(['success' => false, 'message' => 'Too many covers provided'], 400);
-    }
-}
-```
-
-> app\Http\Controllers\SongController.php（第 21 題 `update`，取代原本 `is_cover` 那段）
-
-```php
-if ($request->has('is_cover')) {
-    $newIsCover = $request->boolean('is_cover');
-
-    // [400] 只有「從 false 改成 true」才需要檢查，這張專輯已有的封面數（不含自己）不能超過 3 張
-    if ($newIsCover && !$song->is_cover) {
-        $currentCovers = Song::where('album_id', $album->album_id)
-            ->where('is_cover', true)
-            ->where('song_id', '!=', $song->song_id)
-            ->count();
-
-        if ($currentCovers >= 3) {
-            return response()->json(['success' => false, 'message' => 'Too many covers provided'], 400);
-        }
-    }
-
-    $song->is_cover = $newIsCover;
-}
-```
+寫入時的「封面數 ≥ 3 就擋掉」檢查放在 [19. 新增歌曲到專輯](#19新增歌曲到專輯-post-apialbumsalbum_idsongs) 的 `store()`（新增時 `is_cover=true` 就檢查）跟 [21. 更新歌曲訊息](#21-更新歌曲訊息-post-apialbumsalbum_idsongssong_id) 的 `update()`（只有「從 false 改成 true」才需要檢查目前封面數，已經是封面的歌曲重複設定不算新增）。
 
 > routes\api.php
 
@@ -1670,8 +1682,8 @@ private function albumMetrics()
                 'username' => $album->publisher->username,
                 'email'    => $album->publisher->email,
             ],
-            'created_at'       => $album->created_at->toISOString(),
-            'updated_at'       => $album->updated_at->toISOString(),
+            'created_at'       => $album->created_at->format('Y-m-d\TH:i:s.v\Z'),
+            'updated_at'       => $album->updated_at->format('Y-m-d\TH:i:s.v\Z'),
             'total_view_count' => (int) $album->songs_sum_view_count,
         ]),
     ], 200);
