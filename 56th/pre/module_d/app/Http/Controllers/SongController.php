@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Song;
 // 先在最外層引用
 use App\Models\Album;
+use App\Models\Label;
 use Illuminate\Http\Request;
 
 class SongController extends Controller
@@ -31,8 +32,8 @@ class SongController extends Controller
             return response()->json(['success' => false, 'message' => 'Invalid parameter'], 400);
         }
 
-        // 3. 題目規範：驗證是否屬於這 8 大中文預設標籤 (題目有可能是英文的，請以題目要求為主)
-        $allowedLabels = ['流行', '搖滾', '嘻哈', '電子', '爵士', '經典', '紓壓', '鄉村'];
+        // 3. 題目規範：驗證是否屬於這 8 大英文預設標籤（對齊 module_c_db.sql 的 labels 表）
+        $allowedLabels = ['Pop', 'Rock', 'Hip-Hop', 'Electronic', 'Jazz', 'Classical', 'Chill', 'Country'];
         $finalLabels = [];
 
         if ($request->has('label') && !empty($request->input('label'))) {
@@ -42,7 +43,7 @@ class SongController extends Controller
             foreach ($inputTags as $tag) {
                 $trimmedTag = trim($tag);
 
-                // 直接比對中文，不在裡面就噴 400
+                // 不在 8 大預設標籤裡就噴 400
                 if (!in_array($trimmedTag, $allowedLabels)) {
                     return response()->json(['success' => false, 'message' => 'Invalid parameter'], 400);
                 }
@@ -60,34 +61,38 @@ class SongController extends Controller
         }
 
         // 算一下目前這張專輯有幾首歌，直接 +1。這樣就算資料庫沒給預設值也不會爆掉！
-        $currentSongsCount = Song::where('album_id', $album->id)->count();
+        $currentSongsCount = Song::where('album_id', $album->album_id)->count();
         $nextOrder = $currentSongsCount + 1;
 
         // 5. 寫入資料庫
         $song = new Song();
-        $song->album_id         = $album->id;
+        $song->album_id         = $album->album_id;
         $song->title            = $request->input('title');
         $song->duration_seconds = (int)$request->input('duration_seconds');
         $song->lyrics           = $request->input('lyrics');
-        $song->order            = $nextOrder;
+        $song->track_order      = $nextOrder;
         $song->view_count       = 0;
-        $song->label            = $finalLabels; // 直接存進去（例如：["搖滾", "流行"]）
         $song->is_cover         = $request->boolean('is_cover'); // Laravel 會自動把 "true"/"false" 字串轉成 boolean
         $song->cover_image_path = $imagePath;
         $song->save();
+
+        // 曲風標籤改存關聯表：查出名稱對應的 label_id，用 sync() 寫進 song_labels
+        if (!empty($finalLabels)) {
+            $song->labels()->sync(Label::whereIn('name', $finalLabels)->pluck('label_id'));
+        }
 
         // 6. [201 Created] 回傳
         return response()->json([
             'success' => true,
             'data' => [
-                'id'               => $song->id,
-                'album_id'         => (int)$song->album_id,
+                'id'               => $song->song_id,
+                'album_id'         => $song->album_id,
                 'title'            => $song->title,
                 'duration_seconds' => $song->duration_seconds,
                 'lyrics'           => $song->lyrics,
-                'order'            => $song->order,
+                'order'            => $song->track_order,
                 'view_count'       => $song->view_count,
-                'label'            => $song->label, // 回傳純中文陣列
+                'label'            => $song->label, // 由 Song::getLabelAttribute() 從關聯表組成純字串陣列
                 'is_cover'         => $song->is_cover,
                 'cover_image_url'  => $song->cover_image_url,
                 'created_at'       => $song->created_at->toISOString(),

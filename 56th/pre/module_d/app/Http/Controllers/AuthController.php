@@ -19,7 +19,7 @@ class AuthController extends Controller
         $user = User::where('username', $username)->first();
 
         // 登入時提供了錯誤的帳號或密碼。
-        if (!$user || !Hash::check($password, $user->password)) {
+        if (!$user || !Hash::check($password, $user->password_hash)) {
             return response()->json(['success' => false, 'message' => 'Login failed'], 400);
         }
 
@@ -32,7 +32,7 @@ class AuthController extends Controller
         $token = strtolower(md5($username));
 
         // 將 Token 存入資料庫
-        $user->access_token = $token;
+        $user->token = $token;
         $user->save();
 
         return response()->json([
@@ -40,7 +40,7 @@ class AuthController extends Controller
             'data' => [
                 'token' => $token, // 欄位名改為 token
                 'user' => [
-                    'id'         => $user->id,
+                    'id'         => $user->user_id,
                     'username'   => $user->username,
                     'email'      => $user->email,
                     'role'       => $user->role,
@@ -77,18 +77,18 @@ class AuthController extends Controller
 
         // 一對一存入
         $user = new User();
-        $user->username  = $username;
-        $user->email     = $email;
-        $user->password  = $password; // User model 有 'password' => 'hashed' cast，存入時會自動雜湊
-        $user->role      = 'user'; // 預設都是一般使用者
-        $user->is_banned = false;
+        $user->username      = $username;
+        $user->email         = $email;
+        $user->password_hash = $password; // User model 有 'password_hash' => 'hashed' cast，存入時會自動雜湊
+        $user->role          = 'user'; // 預設都是一般使用者
+        $user->is_banned     = false;
         $user->save();
 
         return response()->json([
             'success' => true,
             'data' => [
                 'user' => [
-                    'id'         => $user->id,
+                    'id'         => $user->user_id,
                     'username'   => $user->username,
                     'email'      => $user->email,
                     'role'       => $user->role,
@@ -108,7 +108,7 @@ class AuthController extends Controller
         // 從自訂的 Middleware 拿取抓到的當前使用者（CheckToken 已保證一定存在，不用再判斷 null）
         $user = $request->input('current_user');
 
-        $user->access_token = null; // 清空 Token
+        $user->token = null; // 清空 Token
         $user->save();
 
         return response()->json(['success' => true]);

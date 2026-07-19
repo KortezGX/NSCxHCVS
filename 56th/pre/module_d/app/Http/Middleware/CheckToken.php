@@ -28,8 +28,8 @@ class CheckToken
         // 2. 解析 Token。題目格式通常是 "Bearer <token>"，我們用最快的方式把 "Bearer " 抹掉
         $token = str_replace('Bearer ', '', $authHeader);
 
-        // 3. 去資料庫撈看有沒有人拿這個 access_token
-        $user = User::where('access_token', $token)->first();
+        // 3. 去資料庫撈看有沒有人拿這個 token
+        $user = User::where('token', $token)->first();
 
         // 無效存取權杖
         if (!$user) {

@@ -47,7 +47,7 @@ class AlbumController extends Controller
         // --- 3. 開始建立查詢（Query Builder） ---
         // 【重要】：因為題目要求回傳 publisher，我們在這裡加上 with('publisher')，
         // 這樣可以做到「預加載（Eager Loading）」，有效解決 N+1 問題，效能會非常好！
-        $query = Album::with('publisher')->where('id', '>', $lastId);
+        $query = Album::with('publisher')->where('album_id', '>', $lastId);
 
         // 處理 filter 篩選 (例如 filter=A，代表 title 要 A 開頭)
         if (!empty($filter)) {
@@ -88,7 +88,7 @@ class AlbumController extends Controller
         }
 
         // --- 4. 撈出資料（先排序後多撈一筆來判斷有沒有下一頁） ---
-        $albums = $query->orderBy('id', 'asc')->take($limit + 1)->get();
+        $albums = $query->orderBy('album_id', 'asc')->take($limit + 1)->get();
 
         // --- 5. 判斷並切除多撈的資料 ---
         $hasNextPage = $albums->count() > $limit;
@@ -101,7 +101,7 @@ class AlbumController extends Controller
         $prevCursor = null;
 
         if ($hasNextPage && $albums->isNotEmpty()) {
-            $nextId = $albums->last()->id;
+            $nextId = $albums->last()->album_id;
             $nextCursor = base64_encode(json_encode(['id' => $nextId]));
         }
 
@@ -113,12 +113,12 @@ class AlbumController extends Controller
         return response()->json([
             'success' => true,
             'data' => $albums->map(fn($album) => [
-                'id'           => $album->id,
+                'id'           => $album->album_id,
                 'title'        => $album->title,
                 'artist'       => $album->artist,
                 'release_year' => $album->release_year,
                 'publisher'    => [
-                    'id'       => $album->publisher->id,
+                    'id'       => $album->publisher->user_id,
                     'username' => $album->publisher->username,
                     'email'    => $album->publisher->email,
                 ],
@@ -140,7 +140,7 @@ class AlbumController extends Controller
         $album = new Album();
 
         // 3. 一對一指派欄位資料
-        $album->publisher_id = $current_user->id; // 將建立者設定為當前登入的管理員 ID
+        $album->publisher_id = $current_user->user_id; // 將建立者設定為當前登入的管理員 ID
         $album->title        = $request->input('title');
         $album->artist       = $request->input('artist');
         $album->release_year = (int) $request->input('release_year'); // 強制轉成整數符合型態
@@ -154,14 +154,14 @@ class AlbumController extends Controller
         return response()->json([
             'success' => true,
             'data' => [
-                'id'           => $album->id,
+                'id'           => $album->album_id,
                 'title'        => $album->title,
                 'artist'       => $album->artist,
                 'release_year' => $album->release_year,
                 'genre'        => $album->genre,
                 'description'  => $album->description,
                 'publisher'    => [
-                    'id'       => $current_user->id,
+                    'id'       => $current_user->user_id,
                     'username' => $current_user->username,
                     'email'    => $current_user->email,
                 ],
@@ -189,7 +189,7 @@ class AlbumController extends Controller
         return response()->json([
             'success' => true,
             'data' => [
-                'id'           => $album->id,
+                'id'           => $album->album_id,
                 'title'        => $album->title,
                 'artist'       => $album->artist,
                 'release_year' => $album->release_year,
@@ -198,7 +198,7 @@ class AlbumController extends Controller
                 'created_at'   => $album->created_at->toISOString(),
                 'updated_at'   => $album->updated_at->toISOString(),
                 'publisher'    => [
-                    'id'       => $publisher->id,
+                    'id'       => $publisher->user_id,
                     'username' => $publisher->username,
                     'email'    => $publisher->email,
                 ],
@@ -230,14 +230,14 @@ class AlbumController extends Controller
         return response()->json([
             'success' => true,
             'data' => [
-                'id'           => $album->id,
+                'id'           => $album->album_id,
                 'title'        => $album->title,
                 'artist'       => $album->artist,
                 'release_year' => $album->release_year,
                 'genre'        => $album->genre,
                 'description'  => $album->description,
                 'publisher'    => [
-                    'id'       => $publisher->id,
+                    'id'       => $publisher->user_id,
                     'username' => $publisher->username,
                     'email'    => $publisher->email,
                 ],

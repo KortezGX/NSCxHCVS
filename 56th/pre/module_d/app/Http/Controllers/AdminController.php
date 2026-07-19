@@ -47,7 +47,7 @@ class AdminController extends Controller
         }
 
         // 撈出身分為 user 的使用者，並抓出分頁 cursor 需要的資料，以及最多抓幾筆資料
-        $users = User::where('role', 'user')->where('id', '>', $lastId)->orderBy('id', 'asc')->take($limit + 1)->get();
+        $users = User::where('role', 'user')->where('user_id', '>', $lastId)->orderBy('user_id', 'asc')->take($limit + 1)->get();
 
         // 判斷到底有沒有下一頁
         $hasNextPage = $users->count() > $limit;
@@ -64,7 +64,7 @@ class AdminController extends Controller
         // 1. 計算 Next Cursor
         // 條件：必須「有下一頁」而且「目前撈出的資料不是空的」
         if ($hasNextPage && $users->isNotEmpty()) {
-            $nextId = $users->last()->id;
+            $nextId = $users->last()->user_id;
             $nextCursor = base64_encode(json_encode(['id' => $nextId]));
         }
 
@@ -78,7 +78,7 @@ class AdminController extends Controller
         return response()->json([
             'success' => true,
             'data' => $users->map(fn($user) => [
-                'id' => $user->id,
+                'id' => $user->user_id,
                 'username' => $user->username,
                 'email' => $user->email,
                 'role' => $user->role,
@@ -127,7 +127,7 @@ class AdminController extends Controller
         return response()->json([
             'success' => true,
             'data' => [
-                'id' => $user->id,
+                'id' => $user->user_id,
                 'username' => $user->username,
                 'email' => $user->email,
                 'role' => $user->role,
@@ -146,7 +146,7 @@ class AdminController extends Controller
         // 先取得目前登入的使用者資料
         $current_user = $request->input('current_user');
 
-        if ($current_user->id === (int) $user_id) {
+        if ($current_user->user_id === (int) $user_id) {
             return response()->json(['success' => false, 'message' => 'Cannot ban self'], 400);
         }
 
@@ -171,7 +171,7 @@ class AdminController extends Controller
         return response()->json([
             'success' => true,
             'data' => [
-                'id' => $user->id,
+                'id' => $user->user_id,
                 'username' => $user->username,
                 'email' => $user->email,
                 'role' => $user->role,
@@ -200,7 +200,7 @@ class AdminController extends Controller
         return response()->json([
             'success' => true,
             'data' => [
-                'id' => $user->id,
+                'id' => $user->user_id,
                 'username' => $user->username,
                 'email' => $user->email,
                 'role' => $user->role,
