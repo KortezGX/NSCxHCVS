@@ -1179,6 +1179,50 @@ Route::get('/songs/{song_id}/cover', [SongController::class, 'showCover']);
 
 ## 6. 取得專輯內歌曲 (GET /api/albums/{album_id}/songs)
 
+`SongController` 建立時 Laravel 就先生成了一個空的 `index()` 方法（RESTful 慣例），直接改寫成這支即可，不用另外新增方法。
+
+> app\Http\Controllers\SongController.php
+>
+
+```php
+// 6. 取得專輯內歌曲 (GET /api/albums/{album_id}/songs)
+public function index($album_id)
+{
+    // [404]
+    $album = Album::find($album_id);
+    if (!$album) {
+        return response()->json(['success' => false, 'message' => 'Not Found'], 404);
+    }
+
+    // with('labels') 預先撈好標籤關聯，避免 map 裡面每首歌都各查一次 (N+1)
+    $songs = Song::with('labels')->where('album_id', $album->album_id)->orderBy('track_order', 'asc')->get();
+
+    return response()->json([
+        'success' => true,
+        'data' => $songs->map(fn($song) => [
+            'id'               => $song->song_id,
+            'album_id'         => $song->album_id,
+            'title'            => $song->title,
+            'label'            => $song->label,
+            'duration_seconds' => $song->duration_seconds,
+            'order'            => $song->track_order,
+            'is_cover'         => $song->is_cover,
+            'cover_image_url'  => $song->cover_image_url,
+        ]),
+    ], 200);
+}
+```
+
+> routes\api.php
+>
+
+```php
+// 公開 API，跟 GET /albums/{album_id} 放一起
+Route::get('/albums/{album_id}/songs', [SongController::class, 'index']);
+```
+
+**驗證：** 起了本機伺服器實測，建立 2 首歌（`Song One` label=Rock、`Song Two` label=Pop,Jazz）後打這支，回傳依 `track_order` 正確排序、`label` 陣列正確組出多個標籤；查不存在的 `album_id` 回 404。測完把資料庫 `migrate:fresh --seed` 重置回乾淨狀態。
+
 ## 7. 取得所有歌曲 (GET /api/songs)
 
 ## 22. 自專輯刪除歌曲 (DELETE /api/albums/{album_id}/songs/{song_id})

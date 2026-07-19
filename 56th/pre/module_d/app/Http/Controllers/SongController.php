@@ -10,12 +10,31 @@ use Illuminate\Http\Request;
 
 class SongController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
-    public function index()
+    // 6. 取得專輯內歌曲 (GET /api/albums/{album_id}/songs)
+    public function index($album_id)
     {
-        //
+        // [404]
+        $album = Album::find($album_id);
+        if (!$album) {
+            return response()->json(['success' => false, 'message' => 'Not Found'], 404);
+        }
+
+        // with('labels') 預先撈好標籤關聯，避免 map 裡面每首歌都各查一次 (N+1)
+        $songs = Song::with('labels')->where('album_id', $album->album_id)->orderBy('track_order', 'asc')->get();
+
+        return response()->json([
+            'success' => true,
+            'data' => $songs->map(fn($song) => [
+                'id'               => $song->song_id,
+                'album_id'         => $song->album_id,
+                'title'            => $song->title,
+                'label'            => $song->label,
+                'duration_seconds' => $song->duration_seconds,
+                'order'            => $song->track_order,
+                'is_cover'         => $song->is_cover,
+                'cover_image_url'  => $song->cover_image_url,
+            ]),
+        ], 200);
     }
 
     // 19.新增歌曲到專輯 (POST /api/albums/{album_id}/songs)
