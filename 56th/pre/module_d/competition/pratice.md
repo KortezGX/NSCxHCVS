@@ -1,7 +1,7 @@
 # 練習順序
 
 > 以下是依照競賽推薦的順序去建立
-> 
+>
 
 ## 初始化檔案與安裝 api.php
 
@@ -35,7 +35,7 @@ class CheckToken
         // 題目格式是 "Bearer <token>"，把 "Bearer " 抹掉拿到純 token
         $token = str_replace('Bearer ', '', $authHeader);
 
-        $user = User::where('access_token', $token)->first();
+        $user = User::where('token', $token)->first();
 
         // [401] 查無此 token
         if (!$user) {
@@ -96,7 +96,7 @@ Route::any('{any}', function () {
 
 ## 1. 使用者登入 (POST /api/login)
 
-> Laravel 內建已經有 `User` model 與 `users` migration，不用另外 `make:model`，直接改預設檔案即可。
+> Laravel 內建已經有 `User` model 與 `users` migration，不用另外 `make:model`，直接改預設檔案即可。欄位命名對齊 [module_c_db.sql](module_c_db.sql)：主鍵是 `user_id`、密碼欄位是 `password_hash`、token 欄位是 `token`。
 >
 
 > database\migrations\0001_01_01_000000_create_users_table.php
@@ -105,19 +105,44 @@ Route::any('{any}', function () {
 ```php
 public function up(): void
 {
-    // 只需要修改 users 表即可，其餘 password_reset_tokens / sessions 用預設的就好
+    // 對齊 module_c_db.sql 的 users 表命名
     Schema::create('users', function (Blueprint $table) {
-        $table->id();
+        $table->id('user_id');
 
-        $table->string('username')->unique();         // 題目登入、註冊皆使用 username
-        $table->string('email')->unique();             // 題目要求的 email 欄位
-        $table->string('password');                    // 密碼
-        $table->string('role')->default('user');       // 角色：admin, user
-        $table->boolean('is_banned')->default(false);  // 是否被封鎖
-        $table->string('access_token')->nullable();    // 存 MD5 token 用
+        $table->string('username')->unique();       // 題目登入、註冊皆使用 username
+        $table->string('email')->unique();          // 題目要求的 email 欄位
+        $table->string('password_hash');            // 密碼（雜湊後）
+        $table->enum('role', ['admin', 'publisher', 'user'])->default('user'); // 角色
+        $table->boolean('is_banned')->default(false); // 是否被封鎖
+        $table->string('token')->nullable();         // 存 MD5 token 的欄位
 
         $table->timestamps();
     });
+}
+```
+
+> app\Models\User.php
+>
+
+```php
+class User extends Authenticatable
+{
+    use HasFactory, Notifiable;
+
+    // 對齊 module_c_db.sql：主鍵欄位是 user_id，不是 Laravel 預設的 id
+    protected $primaryKey = 'user_id';
+
+    protected $hidden = [
+        'password_hash',
+        'remember_token',
+    ];
+
+    protected function casts(): array
+    {
+        return [
+            'password_hash' => 'hashed', // 存入時自動雜湊，不用手動 Hash::make()
+        ];
+    }
 }
 ```
 
@@ -135,7 +160,7 @@ public function login(Request $request)
     $user = User::where('username', $username)->first();
 
     // [400] 帳號不存在或密碼錯誤 → 統一回同一個錯誤，避免洩漏帳號是否存在
-    if (!$user || !Hash::check($password, $user->password)) {
+    if (!$user || !Hash::check($password, $user->password_hash)) {
         return response()->json(['success' => false, 'message' => 'Login failed'], 400);
     }
 
@@ -147,7 +172,7 @@ public function login(Request $request)
     // 題目核心規則：Token = 帳號 md5 後轉全小寫十六進位（同一人每次登入 token 都一樣）
     $token = strtolower(md5($username));
 
-    $user->access_token = $token;
+    $user->token = $token;
     $user->save();
 
     return response()->json([
@@ -155,7 +180,7 @@ public function login(Request $request)
         'data' => [
             'token' => $token,
             'user' => [
-                'id'         => $user->id,
+                'id'         => $user->user_id,
                 'username'   => $user->username,
                 'email'      => $user->email,
                 'role'       => $user->role,
@@ -179,6 +204,8 @@ use App\Http\Controllers\AuthController;
 // ==========================================
 Route::post('/login', [AuthController::class, 'login']);
 ```
+
+**確認結果：邏輯正確。** 帳密錯誤 400、帳密對但被封鎖 403（順序正確，不會洩漏帳號是否存在）、token 產生方式、回傳欄位順序都符合題目要求，寫法維持「一欄一欄賦值」的最簡形式。
 
 ## 2. 使用者註冊 (POST /api/register)
 
@@ -209,18 +236,18 @@ public function register(Request $request)
     }
 
     $user = new User();
-    $user->username  = $username;
-    $user->email     = $email;
-    $user->password  = $password; // User model 有 'password' => 'hashed' cast，存入時自動雜湊，不用手動 Hash::make()
-    $user->role      = 'user'; // 預設都是一般使用者
-    $user->is_banned = false;
+    $user->username      = $username;
+    $user->email         = $email;
+    $user->password_hash = $password; // User model 有 'password_hash' => 'hashed' cast，存入時自動雜湊，不用手動 Hash::make()
+    $user->role          = 'user'; // 預設都是一般使用者
+    $user->is_banned     = false;
     $user->save();
 
     return response()->json([
         'success' => true,
         'data' => [
             'user' => [
-                'id'         => $user->id,
+                'id'         => $user->user_id,
                 'username'   => $user->username,
                 'email'      => $user->email,
                 'role'       => $user->role,
@@ -240,6 +267,8 @@ public function register(Request $request)
 Route::post('/register', [AuthController::class, 'register']);
 ```
 
+**簡化紀錄：** 密碼靠 `password_hash` 欄位的 `'hashed'` cast 自動雜湊，不用手動 `Hash::make()`。使用者名稱／Email 是否重複的檢查用 `->exists()`（只問有沒有，不用撈整筆資料）。
+
 ## 9. 使用者登出 (POST /api/logout)
 
 > app\Http\Controllers\AuthController.php
@@ -252,7 +281,7 @@ public function logout(Request $request)
     // 錯誤判定（沒帶 token / token 無效）都在 CheckToken 這個 middleware 做完了，這裡只要清 token 就好
     $user = $request->input('current_user');
 
-    $user->access_token = null;
+    $user->token = null;
     $user->save();
 
     return response()->json(['success' => true]);
@@ -268,6 +297,8 @@ Route::middleware([CheckToken::class])->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
 });
 ```
+
+**簡化紀錄：** `CheckToken` middleware 找不到使用者時已經直接回 401、不會放行到這支方法，所以 `current_user` 一定存在，不用再包一層 `if ($user)` 判斷。
 
 ## 12. 取得所有使用者 (GET /api/users)
 
@@ -299,8 +330,8 @@ public function users(Request $request)
         $lastId = $cursorData->id;
     }
 
-    // 多撈 1 筆，用來判斷還有沒有下一頁
-    $users = User::where('role', 'user')->where('id', '>', $lastId)->orderBy('id', 'asc')->take($limit + 1)->get();
+    // 多撈 1 筆，用來判斷還有沒有下一頁；排序、篩選都用 user_id（User 的主鍵）
+    $users = User::where('role', 'user')->where('user_id', '>', $lastId)->orderBy('user_id', 'asc')->take($limit + 1)->get();
 
     $hasNextPage = $users->count() > $limit;
     if ($hasNextPage) {
@@ -309,7 +340,7 @@ public function users(Request $request)
 
     $nextCursor = null;
     if ($hasNextPage && $users->isNotEmpty()) {
-        $nextCursor = base64_encode(json_encode(['id' => $users->last()->id]));
+        $nextCursor = base64_encode(json_encode(['id' => $users->last()->user_id]));
     }
 
     $prevCursor = null;
@@ -320,7 +351,7 @@ public function users(Request $request)
     return response()->json([
         'success' => true,
         'data' => $users->map(fn($user) => [
-            'id' => $user->id,
+            'id' => $user->user_id,
             'username' => $user->username,
             'email' => $user->email,
             'role' => $user->role,
@@ -354,7 +385,7 @@ Route::middleware([CheckAdmin::class])->group(function () {
 // 13. 更新使用者角色 (PUT /api/users/{user_id})
 public function update(Request $request, $user_id)
 {
-    // [404]
+    // [404]（User::find 會自動用 user_id 這個主鍵去查，不用改寫法）
     $user = User::find($user_id);
     if (!$user) {
         return response()->json(['success' => false, 'message' => 'User not found'], 404);
@@ -380,7 +411,7 @@ public function update(Request $request, $user_id)
     return response()->json([
         'success' => true,
         'data' => [
-            'id' => $user->id,
+            'id' => $user->user_id,
             'username' => $user->username,
             'email' => $user->email,
             'role' => $user->role,
@@ -413,7 +444,7 @@ public function ban(Request $request, $user_id)
 {
     // [400] 不能封鎖自己
     $current_user = $request->input('current_user');
-    if ($current_user->id === (int) $user_id) {
+    if ($current_user->user_id === (int) $user_id) {
         return response()->json(['success' => false, 'message' => 'Cannot ban self'], 400);
     }
 
@@ -435,7 +466,7 @@ public function ban(Request $request, $user_id)
     return response()->json([
         'success' => true,
         'data' => [
-            'id' => $user->id,
+            'id' => $user->user_id,
             'username' => $user->username,
             'email' => $user->email,
             'role' => $user->role,
@@ -477,7 +508,7 @@ public function unban(Request $request, $user_id)
     return response()->json([
         'success' => true,
         'data' => [
-            'id' => $user->id,
+            'id' => $user->user_id,
             'username' => $user->username,
             'email' => $user->email,
             'role' => $user->role,
@@ -505,21 +536,22 @@ php artisan make:model Album -m --api
 ```
 
 > database\migrations\xx_xx_xx_create_albums_table.php
-> 
+>
 
 ```php
 public function up(): void
 {
+    // 對齊 module_c_db.sql 的 albums 表命名（deleted_at 是 SQL 沒有的，但題目規格第 18 題要求軟刪除，所以保留）
     Schema::create('albums', function (Blueprint $table) {
-        $table->id();
+        $table->id('album_id');
 
-        $table->foreignId('publisher_id')->constrained('users'); // foreignId 表示這是一個外鍵，constrained('users') 表示它參考 users 表的 id 欄位
+        $table->foreignId('publisher_id')->constrained('users', 'user_id'); // 參考 users 表的 user_id 欄位
         $table->string('title'); // 專輯名稱
         $table->string('artist'); // 藝術家名稱
         $table->integer('release_year'); // 發行年份
         $table->string('genre'); // 音樂類型
         $table->text('description')->nullable(); // 專輯描述
-        $table->softDeletes(); // 支援軟刪除
+        $table->softDeletes(); // 支援軟刪除（題目規格要求，SQL 參考檔沒有這欄）
 
         $table->timestamps();
     });
@@ -527,7 +559,7 @@ public function up(): void
 ```
 
 > app\Models\Album.php
-> 
+>
 
 ```php
 // 先在最外層引用
@@ -538,16 +570,19 @@ class Album extends Model
 {
     use SoftDeletes; // 啟用軟刪除功能
 
-    // 定義關聯：這張專輯屬於哪一個發布的管理員
+    // 對齊 module_c_db.sql：主鍵欄位是 album_id，不是 Laravel 預設的 id
+    protected $primaryKey = 'album_id';
+
+    // 定義關聯：這張專輯屬於哪一個發布的管理員（User 的主鍵是 user_id，要明講）
     public function publisher(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'publisher_id');
+        return $this->belongsTo(User::class, 'publisher_id', 'user_id');
     }
 }
 ```
 
 > app\Http\Controllers\AlbumController.php
-> 
+>
 
 ```php
 // 16. 創建新專輯 (POST /api/albums)
@@ -560,7 +595,7 @@ public function store(Request $request)
     $album = new Album();
 
     // 3. 一對一指派欄位資料
-    $album->publisher_id = $current_user->id; // 將建立者設定為當前登入的管理員 ID
+    $album->publisher_id = $current_user->user_id; // 將建立者設定為當前登入的管理員 ID
     $album->title        = $request->input('title');
     $album->artist       = $request->input('artist');
     $album->release_year = (int) $request->input('release_year'); // 強制轉成整數符合型態
@@ -574,14 +609,14 @@ public function store(Request $request)
     return response()->json([
         'success' => true,
         'data' => [
-            'id'           => $album->id,
+            'id'           => $album->album_id,
             'title'        => $album->title,
             'artist'       => $album->artist,
             'release_year' => $album->release_year,
             'genre'        => $album->genre,
             'description'  => $album->description,
             'publisher'    => [
-                'id'       => $current_user->id,
+                'id'       => $current_user->user_id,
                 'username' => $current_user->username,
                 'email'    => $current_user->email,
             ],
@@ -593,7 +628,7 @@ public function store(Request $request)
 ```
 
 > routes\api.php
-> 
+>
 
 ```php
 // 最外層引用用到的 Controller
@@ -632,14 +667,14 @@ public function update(Request $request, $album_id)
     return response()->json([
         'success' => true,
         'data' => [
-            'id'           => $album->id,
+            'id'           => $album->album_id,
             'title'        => $album->title,
             'artist'       => $album->artist,
             'release_year' => $album->release_year,
             'genre'        => $album->genre,
             'description'  => $album->description,
             'publisher'    => [
-                'id'       => $publisher->id,
+                'id'       => $publisher->user_id,
                 'username' => $publisher->username,
                 'email'    => $publisher->email,
             ],
@@ -725,8 +760,8 @@ public function index(Request $request)
         $lastId = $cursorData->id;
     }
 
-    // with('publisher') 做 Eager Loading，避免 N+1
-    $query = Album::with('publisher')->where('id', '>', $lastId);
+    // with('publisher') 做 Eager Loading，避免 N+1；排序、篩選都用 album_id（Album 的主鍵）
+    $query = Album::with('publisher')->where('album_id', '>', $lastId);
 
     // filter=A → title 要 A 開頭
     if (!empty($filter)) {
@@ -755,7 +790,7 @@ public function index(Request $request)
         $query->whereBetween('release_year', [$startYear, $endYear]);
     }
 
-    $albums = $query->orderBy('id', 'asc')->take($limit + 1)->get();
+    $albums = $query->orderBy('album_id', 'asc')->take($limit + 1)->get();
 
     $hasNextPage = $albums->count() > $limit;
     if ($hasNextPage) {
@@ -764,7 +799,7 @@ public function index(Request $request)
 
     $nextCursor = null;
     if ($hasNextPage && $albums->isNotEmpty()) {
-        $nextCursor = base64_encode(json_encode(['id' => $albums->last()->id]));
+        $nextCursor = base64_encode(json_encode(['id' => $albums->last()->album_id]));
     }
 
     $prevCursor = null;
@@ -775,12 +810,12 @@ public function index(Request $request)
     return response()->json([
         'success' => true,
         'data' => $albums->map(fn($album) => [
-            'id'           => $album->id,
+            'id'           => $album->album_id,
             'title'        => $album->title,
             'artist'       => $album->artist,
             'release_year' => $album->release_year,
             'publisher'    => [
-                'id'       => $album->publisher->id,
+                'id'       => $album->publisher->user_id,
                 'username' => $album->publisher->username,
                 'email'    => $album->publisher->email,
             ],
@@ -821,7 +856,7 @@ public function show($album_id)
     return response()->json([
         'success' => true,
         'data' => [
-            'id'           => $album->id,
+            'id'           => $album->album_id,
             'title'        => $album->title,
             'artist'       => $album->artist,
             'release_year' => $album->release_year,
@@ -830,7 +865,7 @@ public function show($album_id)
             'created_at'   => $album->created_at->toISOString(),
             'updated_at'   => $album->updated_at->toISOString(),
             'publisher'    => [
-                'id'       => $publisher->id,
+                'id'       => $publisher->user_id,
                 'username' => $publisher->username,
                 'email'    => $publisher->email,
             ],
@@ -854,65 +889,140 @@ php artisan make:model Song -m --api
 ```
 
 > database\migrations\xx_xx_xx_183304_create_songs_table.php
-> 
+>
 
 ```php
 public function up(): void
 {
+    // 對齊 module_c_db.sql 的 songs 表命名；曲風標籤改用 labels + song_labels 關聯表，不再用 JSON 欄位
     Schema::create('songs', function (Blueprint $table) {
-        $table->id();
+        $table->id('song_id');
 
         // 關聯到專輯表，如果專輯被刪除，底下的歌曲也一併連帶刪除 (Cascade)
-        $table->foreignId('album_id')->constrained()->onDelete('cascade');
+        $table->foreignId('album_id')->constrained('albums', 'album_id')->onDelete('cascade');
         $table->string('title');
         $table->integer('duration_seconds');
         $table->text('lyrics')->nullable();
-        $table->integer('order');
-        $table->integer('view_count')->default(0); // 題目要求預設為 0
+        $table->integer('track_order'); // SQL 用 track_order，避開 order 這個 MySQL 保留字
+        $table->integer('view_count')->default(0); // 題目要求預設為 0，SQL 沒有這欄但統計 API 需要，保留
 
-        // 用 json 欄位直接存英文曲風標籤陣列，例如 ["Rock", "Pop"]
-        $table->json('label')->nullable();
         $table->boolean('is_cover')->default(false);
 
         // 存圖片在 storage 的實體路徑
         $table->string('cover_image_path')->nullable();
-        
-        $table->softDeletes(); // 支援軟刪除
+
+        $table->softDeletes(); // 支援軟刪除（SQL 有這欄，一致）
 
         $table->timestamps();
     });
 }
 ```
 
+曲風標籤額外建兩張表（對齊 module_c_db.sql 的 `labels` + `song_labels`），8 個預設值直接在 migration 裡塞資料，不用另外寫 seeder：
+
+```bash
+php artisan make:migration create_labels_table
+php artisan make:migration create_song_labels_table
+```
+
+> database\migrations\xx_xx_xx_190000_create_labels_table.php
+>
+
+```php
+public function up(): void
+{
+    Schema::create('labels', function (Blueprint $table) {
+        $table->id('label_id');
+        $table->string('name');
+    });
+
+    // 8 個預設曲風固定用英文（跟題目統計 API 範例 labels=Pop,Rock 對齊）
+    DB::table('labels')->insert([
+        ['label_id' => 1, 'name' => 'Pop'],
+        ['label_id' => 2, 'name' => 'Rock'],
+        ['label_id' => 3, 'name' => 'Hip-Hop'],
+        ['label_id' => 4, 'name' => 'Electronic'],
+        ['label_id' => 5, 'name' => 'Jazz'],
+        ['label_id' => 6, 'name' => 'Classical'],
+        ['label_id' => 7, 'name' => 'Chill'],
+        ['label_id' => 8, 'name' => 'Country'],
+    ]);
+}
+```
+
+> database\migrations\xx_xx_xx_190100_create_song_labels_table.php
+>
+
+```php
+public function up(): void
+{
+    Schema::create('song_labels', function (Blueprint $table) {
+        $table->id('song_label_id');
+        $table->foreignId('song_id')->constrained('songs', 'song_id')->onDelete('cascade');
+        $table->foreignId('label_id')->constrained('labels', 'label_id')->onDelete('cascade');
+    });
+}
+```
+
+> app\Models\Label.php（新檔案）
+>
+
+```php
+class Label extends Model
+{
+    protected $primaryKey = 'label_id';
+    public $timestamps = false; // 這張表沒有 created_at / updated_at
+
+    public function songs(): BelongsToMany
+    {
+        return $this->belongsToMany(Song::class, 'song_labels', 'label_id', 'song_id', 'label_id', 'song_id');
+    }
+}
+```
+
 > app\Models\Song.php
-> 
+>
 
 ```php
 // 先在最外層引用
 use Illuminate\Database\Eloquent\SoftDeletes; // 引入軟刪除功能
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class Song extends Model
 {
     use SoftDeletes; // 啟用軟刪除功能
 
-    // 自動幫你處理前端陣列與資料庫 JSON 的轉換
+    // 對齊 module_c_db.sql：主鍵欄位是 song_id，不是 Laravel 預設的 id
+    protected $primaryKey = 'song_id';
+
     protected $casts = [
-        'label'    => 'array',   // 存進去自動變 JSON，撈出來自動變 PHP 陣列
         'is_cover' => 'boolean', // 強制轉成布林值
     ];
 
-    // 動態屬性：自動組裝題目要求的 cover_image_url
-    protected $appends = ['cover_image_url'];
+    // 動態屬性：自動組裝題目要求的 cover_image_url，以及把關聯表組回題目要求的 label 陣列格式
+    protected $appends = ['cover_image_url', 'label'];
 
     public function getCoverImageUrlAttribute()
     {
-        return "/api/songs/{$this->id}/cover";
+        return "/api/songs/{$this->song_id}/cover";
+    }
+
+    // 曲風標籤改用 labels + song_labels 關聯表（對齊 SQL），不再用 JSON 欄位存
+    public function labels(): BelongsToMany
+    {
+        return $this->belongsToMany(Label::class, 'song_labels', 'song_id', 'label_id', 'song_id', 'label_id');
+    }
+
+    // 題目要求的回傳格式是純字串陣列，例如 ["Rock", "Pop"]，所以把關聯撈出來的 Label 轉成純名稱陣列
+    public function getLabelAttribute()
+    {
+        return $this->labels->pluck('name')->values()->all();
     }
 }
 ```
 
 > app\Http\Controllers\SongController.php
-> 
+>
 
 ```php
 // 19.新增歌曲到專輯 (POST /api/albums/{album_id}/songs)
@@ -929,8 +1039,8 @@ public function store(Request $request, $album_id)
       return response()->json(['success' => false, 'message' => 'Invalid parameter'], 400);
   }
 
-  // 3. 題目規範：驗證是否屬於這 8 大中文預設標籤 (題目有可能是英文的，請以題目要求為主)
-  $allowedLabels = ['流行', '搖滾', '嘻哈', '電子', '爵士', '經典', '紓壓', '鄉村'];
+  // 3. 題目規範：驗證是否屬於這 8 大英文預設標籤（對齊 module_c_db.sql 的 labels 表）
+  $allowedLabels = ['Pop', 'Rock', 'Hip-Hop', 'Electronic', 'Jazz', 'Classical', 'Chill', 'Country'];
   $finalLabels = [];
 
   if ($request->has('label') && !empty($request->input('label'))) {
@@ -940,7 +1050,7 @@ public function store(Request $request, $album_id)
       foreach ($inputTags as $tag) {
           $trimmedTag = trim($tag);
 
-          // 直接比對中文，不在裡面就噴 400
+          // 不在 8 大預設標籤裡就噴 400
           if (!in_array($trimmedTag, $allowedLabels)) {
               return response()->json(['success' => false, 'message' => 'Invalid parameter'], 400);
           }
@@ -958,34 +1068,38 @@ public function store(Request $request, $album_id)
   }
 
   // 算一下目前這張專輯有幾首歌，直接 +1。這樣就算資料庫沒給預設值也不會爆掉！
-  $currentSongsCount = Song::where('album_id', $album->id)->count();
+  $currentSongsCount = Song::where('album_id', $album->album_id)->count();
   $nextOrder = $currentSongsCount + 1;
 
   // 5. 寫入資料庫
   $song = new Song();
-  $song->album_id         = $album->id;
+  $song->album_id         = $album->album_id;
   $song->title            = $request->input('title');
   $song->duration_seconds = (int)$request->input('duration_seconds');
   $song->lyrics           = $request->input('lyrics');
-  $song->order            = $nextOrder;
+  $song->track_order      = $nextOrder;
   $song->view_count       = 0;
-  $song->label            = $finalLabels; // 直接存進去（例如：["搖滾", "流行"]）
   $song->is_cover         = $request->boolean('is_cover'); // Laravel 會自動把 "true"/"false" 字串轉成 boolean
   $song->cover_image_path = $imagePath;
   $song->save();
+
+  // 曲風標籤改存關聯表：查出名稱對應的 label_id，用 sync() 寫進 song_labels
+  if (!empty($finalLabels)) {
+      $song->labels()->sync(Label::whereIn('name', $finalLabels)->pluck('label_id'));
+  }
 
   // 6. [201 Created] 回傳
   return response()->json([
       'success' => true,
       'data' => [
-          'id'               => $song->id,
-          'album_id'         => (int)$song->album_id,
+          'id'               => $song->song_id,
+          'album_id'         => $song->album_id,
           'title'            => $song->title,
           'duration_seconds' => $song->duration_seconds,
           'lyrics'           => $song->lyrics,
-          'order'            => $song->order,
+          'order'            => $song->track_order,
           'view_count'       => $song->view_count,
-          'label'            => $song->label, // 回傳純中文陣列
+          'label'            => $song->label, // 由 Song::getLabelAttribute() 從關聯表組成純字串陣列
           'is_cover'         => $song->is_cover,
           'cover_image_url'  => $song->cover_image_url,
           'created_at'       => $song->created_at->toISOString(),
@@ -996,7 +1110,7 @@ public function store(Request $request, $album_id)
 ```
 
 > routes\api.php
-> 
+>
 
 ```php
 // 最外層引用用到的 Controller
@@ -1014,13 +1128,13 @@ Route::middleware([CheckAdmin::class])->group(function () {
 ## 8.取得歌曲封面圖片 (GET /api/songs/{song_id}/cover)
 
 > app\Http\Controllers\SongController.php
-> 
+>
 
 ```php
 // 8.取得歌曲封面圖片 (GET /api/songs/{song_id}/cover)
 public function showCover($song_id)
 {
-    // 1. 尋找歌曲
+    // 1. 尋找歌曲（Song::find 會自動用 song_id 這個主鍵去查）
     $song = Song::find($song_id);
 
     // [404 檢查] 找不到歌曲，或該歌曲根本沒上傳過圖片路徑
@@ -1045,7 +1159,7 @@ public function showCover($song_id)
 ```
 
 > routes\api.php
-> 
+>
 
 ```php
 // 最外層引用用到的 Controller
