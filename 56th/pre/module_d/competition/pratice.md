@@ -1363,6 +1363,58 @@ Route::middleware([CheckAdmin::class])->group(function () {
 
 ## 10. 取得歌曲資訊 (GET /api/songs/{song_id})
 
+題目規定「瀏覽次數將遞增」，所以每次成功取得歌曲資訊都要把 `view_count` +1 後存回去。此 API 屬於「使用者 API」，只要有登入（帶正確 Token）就能呼叫，不需要管理員權限，所以掛在 `CheckToken` 群組底下、不放進 `CheckAdmin` 群組。
+
+> app\Http\Controllers\SongController.php
+>
+
+```php
+// 10. 取得歌曲資訊 (GET /api/songs/{song_id})
+public function show($song_id)
+{
+    // [404] 找不到歌曲
+    $song = Song::find($song_id);
+    if (!$song) {
+        return response()->json(['success' => false, 'message' => 'Not Found'], 404);
+    }
+
+    // 題目規定：每次取得歌曲資訊，瀏覽次數要遞增
+    $song->view_count = $song->view_count + 1;
+    $song->save();
+
+    return response()->json([
+        'success' => true,
+        'data' => [
+            'id'               => $song->song_id,
+            'album_id'         => $song->album_id,
+            'title'            => $song->title,
+            'duration_seconds' => $song->duration_seconds,
+            'order'            => $song->track_order,
+            'label'            => $song->label,
+            'view_count'       => $song->view_count,
+            'is_cover'         => $song->is_cover,
+            'lyrics'           => $song->lyrics,
+            'cover_image_url'  => $song->cover_image_url,
+            'created_at'       => $song->created_at->toISOString(),
+            'updated_at'       => $song->updated_at->toISOString(),
+        ],
+    ], 200);
+}
+```
+
+> routes\api.php
+>
+
+```php
+Route::middleware([CheckToken::class])->group(function () {
+    Route::post('/logout', [AuthController::class, 'logout']);
+    // 加入以下 Route，注意這題不用放進 CheckAdmin 群組
+    Route::get('/songs/{song_id}', [SongController::class, 'show']);
+});
+```
+
+**驗證：** 不帶 Token 呼叫 → 正確回 401；帶正確 Token 連續呼叫兩次同一首歌 → `view_count` 從 1 遞增到 2；查詢不存在的 `song_id` → 正確回 404。測完把資料庫重置回乾淨狀態。
+
 ## 21. 更新歌曲訊息 (POST /api/albums/{album_id}/songs/{song_id})
 
 ## 20. 更新歌曲順序 (PUT /api/albums/{album_id}/songs/order)

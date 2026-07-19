@@ -34,6 +34,7 @@ Route::get('/songs/{song_id}/cover', [SongController::class, 'showCover']);
 // ==========================================
 Route::middleware([CheckToken::class])->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
+    Route::get('/songs/{song_id}', [SongController::class, 'show']);
 
     // ==========================================
     // 3. 管理員專屬 API (使用寫好的 CheckAdmin)

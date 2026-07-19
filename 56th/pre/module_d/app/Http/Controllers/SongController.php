@@ -188,12 +188,36 @@ class SongController extends Controller
         ], 200);
     }
 
-    /**
-     * Display the specified resource.
-     */
-    public function show(Song $song)
+    // 10. 取得歌曲資訊 (GET /api/songs/{song_id})
+    public function show($song_id)
     {
-        //
+        // [404] 找不到歌曲
+        $song = Song::find($song_id);
+        if (!$song) {
+            return response()->json(['success' => false, 'message' => 'Not Found'], 404);
+        }
+
+        // 題目規定：每次取得歌曲資訊，瀏覽次數要遞增
+        $song->view_count = $song->view_count + 1;
+        $song->save();
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'id'               => $song->song_id,
+                'album_id'         => $song->album_id,
+                'title'            => $song->title,
+                'duration_seconds' => $song->duration_seconds,
+                'order'            => $song->track_order,
+                'label'            => $song->label,
+                'view_count'       => $song->view_count,
+                'is_cover'         => $song->is_cover,
+                'lyrics'           => $song->lyrics,
+                'cover_image_url'  => $song->cover_image_url,
+                'created_at'       => $song->created_at->toISOString(),
+                'updated_at'       => $song->updated_at->toISOString(),
+            ],
+        ], 200);
     }
 
     /**
