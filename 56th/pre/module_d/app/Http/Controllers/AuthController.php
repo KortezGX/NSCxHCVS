@@ -66,14 +66,12 @@ class AuthController extends Controller
         }
 
         // 使用者名稱已被使用
-        $exists_user = User::where('username', $username)->first();
-        if ($exists_user) {
+        if (User::where('username', $username)->exists()) {
             return response()->json(['success' => false, 'message' => 'Username already taken'], 409);
         }
 
         // 郵件已被使用
-        $exists_email = User::where('email', $email)->first();
-        if ($exists_email) {
+        if (User::where('email', $email)->exists()) {
             return response()->json(['success' => false, 'message' => 'Email already taken'], 409);
         }
 
@@ -81,7 +79,7 @@ class AuthController extends Controller
         $user = new User();
         $user->username  = $username;
         $user->email     = $email;
-        $user->password  = Hash::make($password);
+        $user->password  = $password; // User model 有 'password' => 'hashed' cast，存入時會自動雜湊
         $user->role      = 'user'; // 預設都是一般使用者
         $user->is_banned = false;
         $user->save();
