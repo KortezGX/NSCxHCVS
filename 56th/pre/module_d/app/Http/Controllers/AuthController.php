@@ -105,13 +105,11 @@ class AuthController extends Controller
     {
         // 錯誤判定都在 CheckToken 的 middleware 做完了，這裡只需要清除資料庫 token 就好
 
-        // 從自訂的 Middleware 拿取抓到的當前使用者
+        // 從自訂的 Middleware 拿取抓到的當前使用者（CheckToken 已保證一定存在，不用再判斷 null）
         $user = $request->input('current_user');
 
-        if ($user) {
-            $user->access_token = null; // 清空 Token
-            $user->save();
-        }
+        $user->access_token = null; // 清空 Token
+        $user->save();
 
         return response()->json(['success' => true]);
     }
