@@ -79,6 +79,15 @@ class SongController extends Controller
             $imagePath = $request->file('cover_image')->store('covers');
         }
 
+        // [400] 題目規範：一張專輯最多只能有 3 張封面圖片組合
+        $isCover = $request->boolean('is_cover'); // Laravel 會自動把 "true"/"false" 字串轉成 boolean
+        if ($isCover) {
+            $currentCovers = Song::where('album_id', $album->album_id)->where('is_cover', true)->count();
+            if ($currentCovers >= 3) {
+                return response()->json(['success' => false, 'message' => 'Too many covers provided'], 400);
+            }
+        }
+
         // 算一下目前這張專輯有幾首歌，直接 +1。這樣就算資料庫沒給預設值也不會爆掉！
         $currentSongsCount = Song::where('album_id', $album->album_id)->count();
         $nextOrder = $currentSongsCount + 1;
@@ -91,7 +100,7 @@ class SongController extends Controller
         $song->lyrics           = $request->input('lyrics');
         $song->track_order      = $nextOrder;
         $song->view_count       = 0;
-        $song->is_cover         = $request->boolean('is_cover'); // Laravel 會自動把 "true"/"false" 字串轉成 boolean
+        $song->is_cover         = $isCover;
         $song->cover_image_path = $imagePath;
         $song->save();
 
@@ -266,7 +275,21 @@ class SongController extends Controller
             $song->lyrics = $request->input('lyrics');
         }
         if ($request->has('is_cover')) {
-            $song->is_cover = $request->boolean('is_cover');
+            $newIsCover = $request->boolean('is_cover');
+
+            // [400] 只有「從 false 改成 true」才需要檢查，這張專輯已有的封面數（不含自己）不能超過 3 張
+            if ($newIsCover && !$song->is_cover) {
+                $currentCovers = Song::where('album_id', $album->album_id)
+                    ->where('is_cover', true)
+                    ->where('song_id', '!=', $song->song_id)
+                    ->count();
+
+                if ($currentCovers >= 3) {
+                    return response()->json(['success' => false, 'message' => 'Too many covers provided'], 400);
+                }
+            }
+
+            $song->is_cover = $newIsCover;
         }
 
         // 有上傳新圖片才覆蓋，沒有就維持原本的封面

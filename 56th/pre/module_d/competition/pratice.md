@@ -1571,4 +1571,100 @@ Route::middleware([CheckAdmin::class])->group(function () {
 
 ## 5. 取得專輯封面圖片 (GET /api/albums/{album_id}/cover)
 
+題目規定：專輯封面由該專輯內 `is_cover=true` 的歌曲依 `track_order` 組合而成，最多 3 張，超過就要回 `Too many covers provided`（400）。這個驗證的時機點應該是「寫入時」（新增/修改歌曲時），所以第 19、21 題（`store`／`update`）也一併補上「目前封面數 ≥ 3 就擋掉」的檢查；這裡的 GET 端點只做防禦性檢查。
+
+多張封面圖片的「合成」改用最簡單的方式：把每張圖片的二進位內容依序接在一起（byte concatenation），不使用 GD／Imagick 做真正的影像合成（PHP 環境沒開 GD，且題目重點在於流程正確、不在於影像品質）。
+
+> app\Http\Controllers\AlbumController.php
+>
+
+```php
+// 5. 取得專輯封面圖片 (GET /api/albums/{album_id}/cover)
+public function showCover($album_id)
+{
+    // [404] 專輯不存在
+    $album = Album::find($album_id);
+    if (!$album) {
+        return response()->json(['success' => false, 'message' => 'Not Found'], 404);
+    }
+
+    // 依照顯示順序（track_order）取出所有設為封面的歌曲
+    $coverSongs = Song::where('album_id', $album->album_id)
+        ->where('is_cover', true)
+        ->orderBy('track_order', 'asc')
+        ->get();
+
+    // [400] 超過 3 張封面（第 19、20、21 題寫入時就會擋掉，這裡是防禦性檢查）
+    if ($coverSongs->count() > 3) {
+        return response()->json(['success' => false, 'message' => 'Too many covers provided'], 400);
+    }
+
+    // [404] 沒有任何歌曲被設定為封面
+    if ($coverSongs->isEmpty()) {
+        return response()->json(['success' => false, 'message' => 'Cover Not Found'], 404);
+    }
+
+    // 最簡單的合成法：依序把每首歌的封面圖片二進位內容接在一起
+    $combinedImage = '';
+    foreach ($coverSongs as $song) {
+        $filePath = storage_path('app/private/' . $song->cover_image_path);
+        if ($song->cover_image_path && file_exists($filePath)) {
+            $combinedImage .= file_get_contents($filePath);
+        }
+    }
+
+    if ($combinedImage === '') {
+        return response()->json(['success' => false, 'message' => 'Cover Not Found'], 404);
+    }
+
+    return response($combinedImage, 200)->header('Content-Type', 'image/jpeg');
+}
+```
+
+> app\Http\Controllers\SongController.php（第 19 題 `store`，新增於圖片上傳之後、寫入資料庫之前）
+>
+
+```php
+// [400] 題目規範：一張專輯最多只能有 3 張封面圖片組合
+$isCover = $request->boolean('is_cover');
+if ($isCover) {
+    $currentCovers = Song::where('album_id', $album->album_id)->where('is_cover', true)->count();
+    if ($currentCovers >= 3) {
+        return response()->json(['success' => false, 'message' => 'Too many covers provided'], 400);
+    }
+}
+```
+
+> app\Http\Controllers\SongController.php（第 21 題 `update`，取代原本 `is_cover` 那段）
+>
+
+```php
+if ($request->has('is_cover')) {
+    $newIsCover = $request->boolean('is_cover');
+
+    // [400] 只有「從 false 改成 true」才需要檢查，這張專輯已有的封面數（不含自己）不能超過 3 張
+    if ($newIsCover && !$song->is_cover) {
+        $currentCovers = Song::where('album_id', $album->album_id)
+            ->where('is_cover', true)
+            ->where('song_id', '!=', $song->song_id)
+            ->count();
+
+        if ($currentCovers >= 3) {
+            return response()->json(['success' => false, 'message' => 'Too many covers provided'], 400);
+        }
+    }
+
+    $song->is_cover = $newIsCover;
+}
+```
+
+> routes\api.php
+>
+
+```php
+Route::get('/albums/{album_id}/cover', [AlbumController::class, 'showCover']);
+```
+
+**驗證：** 建一張專輯，依序新增 4 首歌並把前三首設為封面（is_cover=true，各帶不同測試圖片）→ 前三首都正確 201，第四首（第 4 張封面）正確回 400 `Too many covers provided`；`GET /api/albums/{id}/cover` 回傳的二進位內容，正確等於三張封面圖片依 `track_order` 順序串接的結果；把已有 3 封面的專輯裡另一首非封面歌曲改成 `is_cover=true` → 正確回 400；把已經是封面的歌曲重新設成 `is_cover=true`（沒有新增封面）→ 正確回 200；沒有任何封面歌曲的專輯呼叫這支 API → 正確回 404；不存在的 `album_id` → 正確回 404。測完把資料庫重置回乾淨狀態。
+
 ## 11. 取得統計結果 (GET /api/statistics)

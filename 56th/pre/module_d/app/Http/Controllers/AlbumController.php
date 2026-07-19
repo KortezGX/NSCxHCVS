@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Album;
+use App\Models\Song;
 use Illuminate\Http\Request;
 
 class AlbumController extends Controller
@@ -266,5 +267,46 @@ class AlbumController extends Controller
         return response()->json([
             'success' => true
         ], 200);
+    }
+
+    // 5. 取得專輯封面圖片 (GET /api/albums/{album_id}/cover)
+    public function showCover($album_id)
+    {
+        // [404] 專輯不存在
+        $album = Album::find($album_id);
+        if (!$album) {
+            return response()->json(['success' => false, 'message' => 'Not Found'], 404);
+        }
+
+        // 依照顯示順序（track_order）取出所有設為封面的歌曲
+        $coverSongs = Song::where('album_id', $album->album_id)
+            ->where('is_cover', true)
+            ->orderBy('track_order', 'asc')
+            ->get();
+
+        // [400] 超過 3 張封面（第 19、20、21 題寫入時就會擋掉，這裡是防禦性檢查）
+        if ($coverSongs->count() > 3) {
+            return response()->json(['success' => false, 'message' => 'Too many covers provided'], 400);
+        }
+
+        // [404] 沒有任何歌曲被設定為封面
+        if ($coverSongs->isEmpty()) {
+            return response()->json(['success' => false, 'message' => 'Cover Not Found'], 404);
+        }
+
+        // 最簡單的合成法：依序把每首歌的封面圖片二進位內容接在一起
+        $combinedImage = '';
+        foreach ($coverSongs as $song) {
+            $filePath = storage_path('app/private/' . $song->cover_image_path);
+            if ($song->cover_image_path && file_exists($filePath)) {
+                $combinedImage .= file_get_contents($filePath);
+            }
+        }
+
+        if ($combinedImage === '') {
+            return response()->json(['success' => false, 'message' => 'Cover Not Found'], 404);
+        }
+
+        return response($combinedImage, 200)->header('Content-Type', 'image/jpeg');
     }
 }
