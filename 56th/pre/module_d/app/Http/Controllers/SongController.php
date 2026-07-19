@@ -220,12 +220,84 @@ class SongController extends Controller
         ], 200);
     }
 
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, Song $song)
+    // 21. 更新歌曲訊息 (POST /api/albums/{album_id}/songs/{song_id})
+    public function update(Request $request, $album_id, $song_id)
     {
-        //
+        // [404] 專輯不存在
+        $album = Album::find($album_id);
+        if (!$album) {
+            return response()->json(['success' => false, 'message' => 'Not Found'], 404);
+        }
+
+        // [404] 歌曲不存在，或不屬於這張專輯
+        $song = Song::where('song_id', $song_id)->where('album_id', $album->album_id)->first();
+        if (!$song) {
+            return response()->json(['success' => false, 'message' => 'Not Found'], 404);
+        }
+
+        // 題目規範：驗證是否屬於這 8 大英文預設標籤（跟第 19 題新增歌曲同一套規則）
+        $allowedLabels = ['Pop', 'Rock', 'Hip-Hop', 'Electronic', 'Jazz', 'Classical', 'Chill', 'Country'];
+        $finalLabels = [];
+
+        if ($request->has('label') && !empty($request->input('label'))) {
+            $inputTags = explode(',', $request->input('label'));
+
+            foreach ($inputTags as $tag) {
+                $trimmedTag = trim($tag);
+
+                if (!in_array($trimmedTag, $allowedLabels)) {
+                    return response()->json(['success' => false, 'message' => 'Invalid parameter'], 400);
+                }
+
+                if (!in_array($trimmedTag, $finalLabels)) {
+                    $finalLabels[] = $trimmedTag;
+                }
+            }
+        }
+
+        // 更新部分：只有帶了這個欄位才更新，沒帶的欄位維持原樣
+        if ($request->has('title')) {
+            $song->title = $request->input('title');
+        }
+        if ($request->has('duration_seconds')) {
+            $song->duration_seconds = (int)$request->input('duration_seconds');
+        }
+        if ($request->has('lyrics')) {
+            $song->lyrics = $request->input('lyrics');
+        }
+        if ($request->has('is_cover')) {
+            $song->is_cover = $request->boolean('is_cover');
+        }
+
+        // 有上傳新圖片才覆蓋，沒有就維持原本的封面
+        if ($request->hasFile('cover_image') && $request->file('cover_image')->isValid()) {
+            $song->cover_image_path = $request->file('cover_image')->store('covers');
+        }
+
+        $song->save();
+
+        // 有帶 label 才重新同步關聯，沒帶就維持原本的標籤
+        if ($request->has('label')) {
+            $song->labels()->sync(Label::whereIn('name', $finalLabels)->pluck('label_id'));
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'id'               => $song->song_id,
+                'album_id'         => $song->album_id,
+                'title'            => $song->title,
+                'duration_seconds' => $song->duration_seconds,
+                'lyrics'           => $song->lyrics,
+                'order'            => $song->track_order,
+                'view_count'       => $song->view_count,
+                'label'            => $song->label,
+                'is_cover'         => $song->is_cover,
+                'cover_image_url'  => $song->cover_image_url,
+                'created_at'       => $song->created_at->toISOString(),
+                'updated_at'       => $song->updated_at->toISOString(),
+            ],
+        ], 200);
     }
 
     // 22. 自專輯刪除歌曲 (DELETE /api/albums/{album_id}/songs/{song_id})

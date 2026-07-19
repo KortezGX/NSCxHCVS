@@ -1417,6 +1417,105 @@ Route::middleware([CheckToken::class])->group(function () {
 
 ## 21. 更新歌曲訊息 (POST /api/albums/{album_id}/songs/{song_id})
 
+跟第 22 題一樣要用 `song_id` 併上 `album_id` 一起查，確保不會改到別張專輯底下的歌曲。這題是「局部更新」，body 裡有帶的欄位才更新，沒帶的維持原樣（包含 `cover_image`：沒重新上傳就保留舊封面；`label` 沒帶就保留原本的標籤）。
+
+> app\Http\Controllers\SongController.php
+>
+
+```php
+// 21. 更新歌曲訊息 (POST /api/albums/{album_id}/songs/{song_id})
+public function update(Request $request, $album_id, $song_id)
+{
+    // [404] 專輯不存在
+    $album = Album::find($album_id);
+    if (!$album) {
+        return response()->json(['success' => false, 'message' => 'Not Found'], 404);
+    }
+
+    // [404] 歌曲不存在，或不屬於這張專輯
+    $song = Song::where('song_id', $song_id)->where('album_id', $album->album_id)->first();
+    if (!$song) {
+        return response()->json(['success' => false, 'message' => 'Not Found'], 404);
+    }
+
+    // 題目規範：驗證是否屬於這 8 大英文預設標籤（跟第 19 題新增歌曲同一套規則）
+    $allowedLabels = ['Pop', 'Rock', 'Hip-Hop', 'Electronic', 'Jazz', 'Classical', 'Chill', 'Country'];
+    $finalLabels = [];
+
+    if ($request->has('label') && !empty($request->input('label'))) {
+        $inputTags = explode(',', $request->input('label'));
+
+        foreach ($inputTags as $tag) {
+            $trimmedTag = trim($tag);
+
+            if (!in_array($trimmedTag, $allowedLabels)) {
+                return response()->json(['success' => false, 'message' => 'Invalid parameter'], 400);
+            }
+
+            if (!in_array($trimmedTag, $finalLabels)) {
+                $finalLabels[] = $trimmedTag;
+            }
+        }
+    }
+
+    // 更新部分：只有帶了這個欄位才更新，沒帶的欄位維持原樣
+    if ($request->has('title')) {
+        $song->title = $request->input('title');
+    }
+    if ($request->has('duration_seconds')) {
+        $song->duration_seconds = (int)$request->input('duration_seconds');
+    }
+    if ($request->has('lyrics')) {
+        $song->lyrics = $request->input('lyrics');
+    }
+    if ($request->has('is_cover')) {
+        $song->is_cover = $request->boolean('is_cover');
+    }
+
+    // 有上傳新圖片才覆蓋，沒有就維持原本的封面
+    if ($request->hasFile('cover_image') && $request->file('cover_image')->isValid()) {
+        $song->cover_image_path = $request->file('cover_image')->store('covers');
+    }
+
+    $song->save();
+
+    // 有帶 label 才重新同步關聯，沒帶就維持原本的標籤
+    if ($request->has('label')) {
+        $song->labels()->sync(Label::whereIn('name', $finalLabels)->pluck('label_id'));
+    }
+
+    return response()->json([
+        'success' => true,
+        'data' => [
+            'id'               => $song->song_id,
+            'album_id'         => $song->album_id,
+            'title'            => $song->title,
+            'duration_seconds' => $song->duration_seconds,
+            'lyrics'           => $song->lyrics,
+            'order'            => $song->track_order,
+            'view_count'       => $song->view_count,
+            'label'            => $song->label,
+            'is_cover'         => $song->is_cover,
+            'cover_image_url'  => $song->cover_image_url,
+            'created_at'       => $song->created_at->toISOString(),
+            'updated_at'       => $song->updated_at->toISOString(),
+        ],
+    ], 200);
+}
+```
+
+> routes\api.php
+>
+
+```php
+Route::middleware([CheckAdmin::class])->group(function () {
+    // 加入以下 Route
+    Route::post('/albums/{album_id}/songs/{song_id}', [SongController::class, 'update']);
+});
+```
+
+**驗證：** 只帶 `title` 更新 → 只有 `title` 變、`label`/`duration_seconds` 維持原樣；只帶 `label` 更新 → 標籤正確被替換成新的一組；帶不在 8 大標籤內的值 → 正確回 400；用另一張專輯的 `album_id` 去改這首歌 → 正確回 404（防跨專輯竄改）；改不存在的 `song_id` → 正確回 404。測完把資料庫重置回乾淨狀態。
+
 ## 20. 更新歌曲順序 (PUT /api/albums/{album_id}/songs/order)
 
 ## 5. 取得專輯封面圖片 (GET /api/albums/{album_id}/cover)
