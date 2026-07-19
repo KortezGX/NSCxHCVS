@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 // 先在最外層引用
 use Illuminate\Database\Eloquent\SoftDeletes; // 引入軟刪除功能
 use Illuminate\Database\Eloquent\Relations\BelongsTo; // 引入 BelongsTo 類別以便定義關聯
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Album extends Model
 {
@@ -18,5 +19,11 @@ class Album extends Model
     public function publisher(): BelongsTo
     {
         return $this->belongsTo(User::class, 'publisher_id', 'user_id');
+    }
+
+    // 定義關聯：這張專輯底下有哪些歌曲（第 11 題統計要用 withSum 加總 view_count）
+    public function songs(): HasMany
+    {
+        return $this->hasMany(Song::class, 'album_id', 'album_id');
     }
 }

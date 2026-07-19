@@ -1,7 +1,6 @@
 # 練習順序
 
 > 以下是依照競賽推薦的順序去建立
->
 
 ## 初始化檔案與安裝 api.php
 
@@ -19,7 +18,6 @@ php artisan make:middleware CheckAdmin
 ```
 
 > app\Http\Middleware\CheckToken.php
->
 
 ```php
 class CheckToken
@@ -56,7 +54,6 @@ class CheckToken
 ```
 
 > app\Http\Middleware\CheckAdmin.php
->
 
 ```php
 class CheckAdmin
@@ -77,7 +74,6 @@ class CheckAdmin
 ```
 
 > routes\api.php
->
 
 ```php
 Route::middleware([CheckToken::class])->group(function () {
@@ -97,10 +93,8 @@ Route::any('{any}', function () {
 ## 1. 使用者登入 (POST /api/login)
 
 > Laravel 內建已經有 `User` model 與 `users` migration，不用另外 `make:model`，直接改預設檔案即可。欄位命名對齊 [module_c_db.sql](module_c_db.sql)：主鍵是 `user_id`、密碼欄位是 `password_hash`、token 欄位是 `token`。
->
 
 > database\migrations\0001_01_01_000000_create_users_table.php
->
 
 ```php
 public function up(): void
@@ -122,7 +116,6 @@ public function up(): void
 ```
 
 > app\Models\User.php
->
 
 ```php
 class User extends Authenticatable
@@ -147,7 +140,6 @@ class User extends Authenticatable
 ```
 
 > app\Http\Controllers\AuthController.php
->
 
 ```php
 // 1. 使用者登入 (POST /api/login)
@@ -193,7 +185,6 @@ public function login(Request $request)
 ```
 
 > routes\api.php
->
 
 ```php
 // 最外層引用用到的 Controller
@@ -210,7 +201,6 @@ Route::post('/login', [AuthController::class, 'login']);
 ## 2. 使用者註冊 (POST /api/register)
 
 > app\Http\Controllers\AuthController.php
->
 
 ```php
 // 2. 使用者註冊 (POST /api/register)
@@ -260,7 +250,6 @@ public function register(Request $request)
 ```
 
 > routes\api.php
->
 
 ```php
 // 公開 API，緊接在 /login 下面
@@ -272,7 +261,6 @@ Route::post('/register', [AuthController::class, 'register']);
 ## 9. 使用者登出 (POST /api/logout)
 
 > app\Http\Controllers\AuthController.php
->
 
 ```php
 // 9. 使用者登出 (POST /api/logout)
@@ -289,7 +277,6 @@ public function logout(Request $request)
 ```
 
 > routes\api.php
->
 
 ```php
 Route::middleware([CheckToken::class])->group(function () {
@@ -303,7 +290,6 @@ Route::middleware([CheckToken::class])->group(function () {
 ## 12. 取得所有使用者 (GET /api/users)
 
 > app\Http\Controllers\AdminController.php
->
 
 ```php
 // 12. 取得所有使用者 (GET /api/users)
@@ -367,7 +353,6 @@ public function users(Request $request)
 ```
 
 > routes\api.php
->
 
 ```php
 Route::middleware([CheckAdmin::class])->group(function () {
@@ -379,7 +364,6 @@ Route::middleware([CheckAdmin::class])->group(function () {
 ## 13. 更新使用者角色 (PUT /api/users/{user_id})
 
 > app\Http\Controllers\AdminController.php
->
 
 ```php
 // 13. 更新使用者角色 (PUT /api/users/{user_id})
@@ -424,7 +408,6 @@ public function update(Request $request, $user_id)
 ```
 
 > routes\api.php
->
 
 ```php
 Route::middleware([CheckAdmin::class])->group(function () {
@@ -436,7 +419,6 @@ Route::middleware([CheckAdmin::class])->group(function () {
 ## 14. 封鎖使用者 (PUT /api/users/{user_id}/ban)
 
 > app\Http\Controllers\AdminController.php
->
 
 ```php
 // 14. 封鎖使用者 (PUT /api/users/{user_id}/ban)
@@ -478,7 +460,6 @@ public function ban(Request $request, $user_id)
 ```
 
 > routes\api.php
->
 
 ```php
 Route::middleware([CheckAdmin::class])->group(function () {
@@ -490,7 +471,6 @@ Route::middleware([CheckAdmin::class])->group(function () {
 ## 15. 解除封鎖使用者 (PUT /api/users/{user_id}/unban)
 
 > app\Http\Controllers\AdminController.php
->
 
 ```php
 // 15. 解除封鎖使用者 (PUT /api/users/{user_id}/unban)
@@ -520,7 +500,6 @@ public function unban(Request $request, $user_id)
 ```
 
 > routes\api.php
->
 
 ```php
 Route::middleware([CheckAdmin::class])->group(function () {
@@ -536,7 +515,6 @@ php artisan make:model Album -m --api
 ```
 
 > database\migrations\xx_xx_xx_create_albums_table.php
->
 
 ```php
 public function up(): void
@@ -559,7 +537,6 @@ public function up(): void
 ```
 
 > app\Models\Album.php
->
 
 ```php
 // 先在最外層引用
@@ -582,7 +559,6 @@ class Album extends Model
 ```
 
 > app\Http\Controllers\AlbumController.php
->
 
 ```php
 // 16. 創建新專輯 (POST /api/albums)
@@ -628,7 +604,6 @@ public function store(Request $request)
 ```
 
 > routes\api.php
->
 
 ```php
 // 最外層引用用到的 Controller
@@ -646,7 +621,6 @@ Route::middleware([CheckAdmin::class])->group(function () {
 ## 17. 更新專輯訊息 (PUT /api/albums/{album_id})
 
 > app\Http\Controllers\AlbumController.php
->
 
 ```php
 // 17. 更新專輯訊息 (PUT /api/albums/{album_id})
@@ -686,7 +660,6 @@ public function update(Request $request, $album_id)
 ```
 
 > routes\api.php
->
 
 ```php
 Route::middleware([CheckAdmin::class])->group(function () {
@@ -700,7 +673,6 @@ Route::middleware([CheckAdmin::class])->group(function () {
 此刪除為軟刪除，靠 [Album.php](../app/Models/Album.php) 的 `SoftDeletes` trait 處理，`->delete()` 實際上是 UPDATE `deleted_at`。
 
 > app\Http\Controllers\AlbumController.php
->
 
 ```php
 // 18. 刪除專輯 (DELETE /api/albums/{album_id})
@@ -719,7 +691,6 @@ public function destroy($album_id)
 ```
 
 > routes\api.php
->
 
 ```php
 Route::middleware([CheckAdmin::class])->group(function () {
@@ -731,7 +702,6 @@ Route::middleware([CheckAdmin::class])->group(function () {
 ## 3. 取得所有專輯 (GET /api/albums)
 
 > app\Http\Controllers\AlbumController.php
->
 
 ```php
 // 3. 取得所有專輯 (GET /api/albums)
@@ -829,7 +799,6 @@ public function index(Request $request)
 ```
 
 > routes\api.php
->
 
 ```php
 // 公開 API
@@ -839,7 +808,6 @@ Route::get('/albums', [AlbumController::class, 'index']);
 ## 4. 取得專輯資訊 (GET /api/albums/{album_id})
 
 > app\Http\Controllers\AlbumController.php
->
 
 ```php
 // 4. 取得專輯資訊 (GET /api/albums/{album_id})
@@ -875,7 +843,6 @@ public function show($album_id)
 ```
 
 > routes\api.php
->
 
 ```php
 // 公開 API
@@ -889,7 +856,6 @@ php artisan make:model Song -m --api
 ```
 
 > database\migrations\xx_xx_xx_183304_create_songs_table.php
->
 
 ```php
 public function up(): void
@@ -926,7 +892,6 @@ php artisan make:migration create_song_labels_table
 ```
 
 > database\migrations\xx_xx_xx_190000_create_labels_table.php
->
 
 ```php
 public function up(): void
@@ -951,7 +916,6 @@ public function up(): void
 ```
 
 > database\migrations\xx_xx_xx_190100_create_song_labels_table.php
->
 
 ```php
 public function up(): void
@@ -965,7 +929,6 @@ public function up(): void
 ```
 
 > app\Models\Label.php（新檔案）
->
 
 ```php
 class Label extends Model
@@ -981,7 +944,6 @@ class Label extends Model
 ```
 
 > app\Models\Song.php
->
 
 ```php
 // 先在最外層引用
@@ -1022,7 +984,6 @@ class Song extends Model
 ```
 
 > app\Http\Controllers\SongController.php
->
 
 ```php
 // 19.新增歌曲到專輯 (POST /api/albums/{album_id}/songs)
@@ -1110,7 +1071,6 @@ public function store(Request $request, $album_id)
 ```
 
 > routes\api.php
->
 
 ```php
 // 最外層引用用到的 Controller
@@ -1128,7 +1088,6 @@ Route::middleware([CheckAdmin::class])->group(function () {
 ## 8.取得歌曲封面圖片 (GET /api/songs/{song_id}/cover)
 
 > app\Http\Controllers\SongController.php
->
 
 ```php
 // 8.取得歌曲封面圖片 (GET /api/songs/{song_id}/cover)
@@ -1159,7 +1118,6 @@ public function showCover($song_id)
 ```
 
 > routes\api.php
->
 
 ```php
 // 最外層引用用到的 Controller
@@ -1173,16 +1131,11 @@ use App\Http\Controllers\SongController;
 Route::get('/songs/{song_id}/cover', [SongController::class, 'showCover']);
 ```
 
-## 待完成清單（由簡入繁排序）
-
-> 尚未實作／尚未在 routes\api.php 註冊的 8 支，依複雜度由簡到繁排列如下，每完成一支再補上對應內容。
-
 ## 6. 取得專輯內歌曲 (GET /api/albums/{album_id}/songs)
 
 `SongController` 建立時 Laravel 就先生成了一個空的 `index()` 方法（RESTful 慣例），直接改寫成這支即可，不用另外新增方法。
 
 > app\Http\Controllers\SongController.php
->
 
 ```php
 // 6. 取得專輯內歌曲 (GET /api/albums/{album_id}/songs)
@@ -1214,7 +1167,6 @@ public function index($album_id)
 ```
 
 > routes\api.php
->
 
 ```php
 // 公開 API，跟 GET /albums/{album_id} 放一起
@@ -1228,7 +1180,6 @@ Route::get('/albums/{album_id}/songs', [SongController::class, 'index']);
 跟 [3. 取得所有專輯](#3-取得所有專輯-get-apialbums) 用一樣的 cursor 分頁邏輯，多加一個 `keyword` 依歌名篩選。多了 `album_title` 欄位，所以 [Song.php](../app/Models/Song.php) 補上 `album()` 關聯。
 
 > app\Models\Song.php（新增這段關聯）
->
 
 ```php
 // 定義關聯：這首歌屬於哪一張專輯（GET /api/songs 要回傳 album_title 會用到）
@@ -1239,7 +1190,6 @@ public function album(): BelongsTo
 ```
 
 > app\Http\Controllers\SongController.php
->
 
 ```php
 // 7. 取得所有歌曲 (GET /api/songs)
@@ -1312,7 +1262,6 @@ public function all(Request $request)
 ```
 
 > routes\api.php
->
 
 ```php
 Route::get('/songs', [SongController::class, 'all']);
@@ -1325,7 +1274,6 @@ Route::get('/songs', [SongController::class, 'all']);
 此刪除為軟刪除。歌曲要用 `song_id` 併上 `album_id` 一起查，確保不會刪到別張專輯底下的歌曲。
 
 > app\Http\Controllers\SongController.php
->
 
 ```php
 // 22. 自專輯刪除歌曲 (DELETE /api/albums/{album_id}/songs/{song_id})
@@ -1350,7 +1298,6 @@ public function destroy($album_id, $song_id)
 ```
 
 > routes\api.php
->
 
 ```php
 Route::middleware([CheckAdmin::class])->group(function () {
@@ -1366,7 +1313,6 @@ Route::middleware([CheckAdmin::class])->group(function () {
 題目規定「瀏覽次數將遞增」，所以每次成功取得歌曲資訊都要把 `view_count` +1 後存回去。此 API 屬於「使用者 API」，只要有登入（帶正確 Token）就能呼叫，不需要管理員權限，所以掛在 `CheckToken` 群組底下、不放進 `CheckAdmin` 群組。
 
 > app\Http\Controllers\SongController.php
->
 
 ```php
 // 10. 取得歌曲資訊 (GET /api/songs/{song_id})
@@ -1403,7 +1349,6 @@ public function show($song_id)
 ```
 
 > routes\api.php
->
 
 ```php
 Route::middleware([CheckToken::class])->group(function () {
@@ -1420,7 +1365,6 @@ Route::middleware([CheckToken::class])->group(function () {
 跟第 22 題一樣要用 `song_id` 併上 `album_id` 一起查，確保不會改到別張專輯底下的歌曲。這題是「局部更新」，body 裡有帶的欄位才更新，沒帶的維持原樣（包含 `cover_image`：沒重新上傳就保留舊封面；`label` 沒帶就保留原本的標籤）。
 
 > app\Http\Controllers\SongController.php
->
 
 ```php
 // 21. 更新歌曲訊息 (POST /api/albums/{album_id}/songs/{song_id})
@@ -1505,7 +1449,6 @@ public function update(Request $request, $album_id, $song_id)
 ```
 
 > routes\api.php
->
 
 ```php
 Route::middleware([CheckAdmin::class])->group(function () {
@@ -1521,7 +1464,6 @@ Route::middleware([CheckAdmin::class])->group(function () {
 `song_ids` 陣列裡每一個 ID 都要先確認屬於這張專輯，全部合法才依照陣列順序把 `track_order` 從 1 開始重新寫回去。
 
 > app\Http\Controllers\SongController.php
->
 
 ```php
 // 20. 更新歌曲順序 (PUT /api/albums/{album_id}/songs/order)
@@ -1558,7 +1500,6 @@ public function updateOrder(Request $request, $album_id)
 ```
 
 > routes\api.php
->
 
 ```php
 Route::middleware([CheckAdmin::class])->group(function () {
@@ -1576,7 +1517,6 @@ Route::middleware([CheckAdmin::class])->group(function () {
 多張封面圖片的「合成」改用最簡單的方式：把每張圖片的二進位內容依序接在一起（byte concatenation），不使用 GD／Imagick 做真正的影像合成（PHP 環境沒開 GD，且題目重點在於流程正確、不在於影像品質）。
 
 > app\Http\Controllers\AlbumController.php
->
 
 ```php
 // 5. 取得專輯封面圖片 (GET /api/albums/{album_id}/cover)
@@ -1622,7 +1562,6 @@ public function showCover($album_id)
 ```
 
 > app\Http\Controllers\SongController.php（第 19 題 `store`，新增於圖片上傳之後、寫入資料庫之前）
->
 
 ```php
 // [400] 題目規範：一張專輯最多只能有 3 張封面圖片組合
@@ -1636,7 +1575,6 @@ if ($isCover) {
 ```
 
 > app\Http\Controllers\SongController.php（第 21 題 `update`，取代原本 `is_cover` 那段）
->
 
 ```php
 if ($request->has('is_cover')) {
@@ -1659,7 +1597,6 @@ if ($request->has('is_cover')) {
 ```
 
 > routes\api.php
->
 
 ```php
 Route::get('/albums/{album_id}/cover', [AlbumController::class, 'showCover']);
@@ -1668,3 +1605,120 @@ Route::get('/albums/{album_id}/cover', [AlbumController::class, 'showCover']);
 **驗證：** 建一張專輯，依序新增 4 首歌並把前三首設為封面（is_cover=true，各帶不同測試圖片）→ 前三首都正確 201，第四首（第 4 張封面）正確回 400 `Too many covers provided`；`GET /api/albums/{id}/cover` 回傳的二進位內容，正確等於三張封面圖片依 `track_order` 順序串接的結果；把已有 3 封面的專輯裡另一首非封面歌曲改成 `is_cover=true` → 正確回 400；把已經是封面的歌曲重新設成 `is_cover=true`（沒有新增封面）→ 正確回 200；沒有任何封面歌曲的專輯呼叫這支 API → 正確回 404；不存在的 `album_id` → 正確回 404。測完把資料庫重置回乾淨狀態。
 
 ## 11. 取得統計結果 (GET /api/statistics)
+
+三種 `metrics` 各自獨立處理，所以拆成三個 private method；新建一個 `StatisticsController`，不塞進 `SongController`／`AlbumController` 裡，避免這兩支已經很長的檔案再變大。
+
+> app\Http\Controllers\StatisticsController.php
+
+```php
+// 11. 取得統計結果 (GET /api/statistics)
+public function index(Request $request)
+{
+    $metrics = $request->query('metrics');
+
+    if ($metrics === 'song') {
+        return $this->songMetrics($request);
+    }
+
+    if ($metrics === 'album') {
+        return $this->albumMetrics();
+    }
+
+    if ($metrics === 'label') {
+        return $this->labelMetrics($request);
+    }
+
+    // [400] metrics 不是 song/album/label 三選一
+    return response()->json(['success' => false, 'message' => 'Invalid parameter'], 400);
+}
+
+// metrics=song：依曲風過濾（選填），依 view_count 由高到低排序
+private function songMetrics(Request $request)
+{
+    $query = Song::with('labels');
+
+    $labelsParam = $request->query('labels');
+    if (!empty($labelsParam)) {
+        $labelNames = array_map('trim', explode(',', $labelsParam));
+        $query->whereHas('labels', fn($q) => $q->whereIn('name', $labelNames));
+    }
+
+    $songs = $query->orderBy('view_count', 'desc')->get();
+
+    return response()->json([
+        'success' => true,
+        'data' => $songs->map(fn($song) => $this->formatSong($song)),
+    ], 200);
+}
+
+// metrics=album：以專輯分組，加總底下所有歌曲的 view_count，依總瀏覽數由高到低排序
+private function albumMetrics()
+{
+    $albums = Album::with('publisher')->withSum('songs', 'view_count')->orderBy('songs_sum_view_count', 'desc')->get();
+
+    return response()->json([
+        'success' => true,
+        'data' => $albums->map(fn($album) => [
+            'id'               => $album->album_id,
+            'title'            => $album->title,
+            'artist'           => $album->artist,
+            'release_year'     => $album->release_year,
+            'genre'            => $album->genre,
+            'description'      => $album->description,
+            'publisher'        => [
+                'id'       => $album->publisher->user_id,
+                'username' => $album->publisher->username,
+                'email'    => $album->publisher->email,
+            ],
+            'created_at'       => $album->created_at->toISOString(),
+            'updated_at'       => $album->updated_at->toISOString(),
+            'total_view_count' => (int) $album->songs_sum_view_count,
+        ]),
+    ], 200);
+}
+
+// metrics=label：以曲風分組（選填篩選特定曲風），每組最多取前 10 首瀏覽量最高的歌曲，依總瀏覽數由高到低排序
+private function labelMetrics(Request $request)
+{
+    $query = Label::with(['songs' => fn($q) => $q->orderBy('view_count', 'desc')]);
+
+    $labelsParam = $request->query('labels');
+    if (!empty($labelsParam)) {
+        $labelNames = array_map('trim', explode(',', $labelsParam));
+        $query->whereIn('name', $labelNames);
+    }
+
+    $labels = $query->get();
+
+    $result = $labels->map(fn($label) => [
+        'total_view_count' => (int) $label->songs->sum('view_count'),
+        'label'            => $label->name,
+        'songs'            => $label->songs->take(10)->map(fn($song) => $this->formatSong($song))->values(),
+    ])->sortByDesc('total_view_count')->values();
+
+    return response()->json([
+        'success' => true,
+        'data' => $result,
+    ], 200);
+}
+```
+
+> app\Models\Album.php（新增 `songs()` 關聯，讓 `withSum` 能加總）
+
+```php
+public function songs(): HasMany
+{
+    return $this->hasMany(Song::class, 'album_id', 'album_id');
+}
+```
+
+> routes\api.php
+
+```php
+Route::middleware([CheckToken::class])->group(function () {
+    // 加入以下 Route，注意這題不用放進 CheckAdmin 群組
+    Route::get('/statistics', [StatisticsController::class, 'index']);
+});
+```
+
+**驗證：** 建兩張專輯、三首歌（Rock、Pop、Rock+Pop 各自不同曲風），用 `GET /api/songs/{id}` 分別衝出 5、2、8 次瀏覽數：`metrics=song` 正確依瀏覽數由高到低排序；加上 `labels=Rock` 正確只篩出帶 Rock 標籤的兩首歌；`metrics=album` 正確加總各專輯底下歌曲瀏覽數並排序；`metrics=label` 正確依標籤分組加總（跨標籤歌曲的瀏覽數會同時算進兩個標籤），沒有歌曲的標籤正確顯示 0；`metrics` 帶不合法的值 → 正確回 400；不帶 Token → 正確回 401。測完把資料庫重置回乾淨狀態。

@@ -7,6 +7,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AlbumController;
 use App\Http\Controllers\SongController;
+use App\Http\Controllers\StatisticsController;
 // 最外層引用用到的 Middleware
 use App\Http\Middleware\CheckToken;
 use App\Http\Middleware\CheckAdmin;
@@ -36,6 +37,7 @@ Route::get('/songs/{song_id}/cover', [SongController::class, 'showCover']);
 Route::middleware([CheckToken::class])->group(function () {
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/songs/{song_id}', [SongController::class, 'show']);
+    Route::get('/statistics', [StatisticsController::class, 'index']);
 
     // ==========================================
     // 3. 管理員專屬 API (使用寫好的 CheckAdmin)
