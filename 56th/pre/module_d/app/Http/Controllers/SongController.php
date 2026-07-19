@@ -300,6 +300,38 @@ class SongController extends Controller
         ], 200);
     }
 
+    // 20. 更新歌曲順序 (PUT /api/albums/{album_id}/songs/order)
+    public function updateOrder(Request $request, $album_id)
+    {
+        // [404] 專輯不存在
+        $album = Album::find($album_id);
+        if (!$album) {
+            return response()->json(['success' => false, 'message' => 'Not Found'], 404);
+        }
+
+        $songIds = $request->input('song_ids');
+
+        // [400] song_ids 必須是非空陣列
+        if (!is_array($songIds) || empty($songIds)) {
+            return response()->json(['success' => false, 'message' => 'Validation failed'], 400);
+        }
+
+        // [400] song_ids 裡每一個都要屬於這張專輯，不然不知道要排在哪
+        $albumSongIds = Song::where('album_id', $album->album_id)->pluck('song_id')->all();
+        foreach ($songIds as $songId) {
+            if (!in_array($songId, $albumSongIds)) {
+                return response()->json(['success' => false, 'message' => 'Validation failed'], 400);
+            }
+        }
+
+        // 依照陣列順序，逐一寫回 track_order（從 1 開始）
+        foreach ($songIds as $index => $songId) {
+            Song::where('song_id', $songId)->update(['track_order' => $index + 1]);
+        }
+
+        return response()->json(['success' => true], 200);
+    }
+
     // 22. 自專輯刪除歌曲 (DELETE /api/albums/{album_id}/songs/{song_id})
     public function destroy($album_id, $song_id)
     {

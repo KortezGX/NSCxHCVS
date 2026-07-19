@@ -1518,6 +1518,57 @@ Route::middleware([CheckAdmin::class])->group(function () {
 
 ## 20. 更新歌曲順序 (PUT /api/albums/{album_id}/songs/order)
 
+`song_ids` 陣列裡每一個 ID 都要先確認屬於這張專輯，全部合法才依照陣列順序把 `track_order` 從 1 開始重新寫回去。
+
+> app\Http\Controllers\SongController.php
+>
+
+```php
+// 20. 更新歌曲順序 (PUT /api/albums/{album_id}/songs/order)
+public function updateOrder(Request $request, $album_id)
+{
+    // [404] 專輯不存在
+    $album = Album::find($album_id);
+    if (!$album) {
+        return response()->json(['success' => false, 'message' => 'Not Found'], 404);
+    }
+
+    $songIds = $request->input('song_ids');
+
+    // [400] song_ids 必須是非空陣列
+    if (!is_array($songIds) || empty($songIds)) {
+        return response()->json(['success' => false, 'message' => 'Validation failed'], 400);
+    }
+
+    // [400] song_ids 裡每一個都要屬於這張專輯，不然不知道要排在哪
+    $albumSongIds = Song::where('album_id', $album->album_id)->pluck('song_id')->all();
+    foreach ($songIds as $songId) {
+        if (!in_array($songId, $albumSongIds)) {
+            return response()->json(['success' => false, 'message' => 'Validation failed'], 400);
+        }
+    }
+
+    // 依照陣列順序，逐一寫回 track_order（從 1 開始）
+    foreach ($songIds as $index => $songId) {
+        Song::where('song_id', $songId)->update(['track_order' => $index + 1]);
+    }
+
+    return response()->json(['success' => true], 200);
+}
+```
+
+> routes\api.php
+>
+
+```php
+Route::middleware([CheckAdmin::class])->group(function () {
+    // 加入以下 Route
+    Route::put('/albums/{album_id}/songs/order', [SongController::class, 'updateOrder']);
+});
+```
+
+**驗證：** 建一張專輯、三首歌（初始順序 1,2,3），送出 `song_ids: [3,1,2]` → 三首歌的 `order` 正確變成 3→1、1→2、2→3；`song_ids` 帶入不屬於這張專輯的 ID → 正確回 400；`song_ids` 帶空陣列 → 正確回 400；對不存在的 `album_id` 呼叫 → 正確回 404。測完把資料庫重置回乾淨狀態。
+
 ## 5. 取得專輯封面圖片 (GET /api/albums/{album_id}/cover)
 
 ## 11. 取得統計結果 (GET /api/statistics)
