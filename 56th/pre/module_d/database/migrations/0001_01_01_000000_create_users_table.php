@@ -11,16 +11,16 @@ return new class extends Migration
      */
     public function up(): void
     {
-        // 只修改 Users 表即可
+        // 對齊 module_c_db.sql 的 users 表命名
         Schema::create('users', function (Blueprint $table) {
-            $table->id();
+            $table->id('user_id');
 
             $table->string('username')->unique();       // 題目登入、註冊與欄位皆使用 username
             $table->string('email')->unique();          // 題目要求的 email 欄位
-            $table->string('password');                 // 密碼
-            $table->string('role')->default('user');    // 角色：admin, user
+            $table->string('password_hash');            // 密碼（雜湊後）
+            $table->enum('role', ['admin', 'publisher', 'user'])->default('user'); // 角色
             $table->boolean('is_banned')->default(false); // 是否被封鎖
-            $table->string('access_token')->nullable(); // 自訂用來存 MD5 token 的欄位
+            $table->string('token')->nullable();         // 存 MD5 token 的欄位
 
             $table->timestamps();
         });
