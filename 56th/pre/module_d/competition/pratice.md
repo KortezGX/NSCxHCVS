@@ -1322,6 +1322,45 @@ Route::get('/songs', [SongController::class, 'all']);
 
 ## 22. 自專輯刪除歌曲 (DELETE /api/albums/{album_id}/songs/{song_id})
 
+此刪除為軟刪除。歌曲要用 `song_id` 併上 `album_id` 一起查，確保不會刪到別張專輯底下的歌曲。
+
+> app\Http\Controllers\SongController.php
+>
+
+```php
+// 22. 自專輯刪除歌曲 (DELETE /api/albums/{album_id}/songs/{song_id})
+public function destroy($album_id, $song_id)
+{
+    // [404] 專輯不存在
+    $album = Album::find($album_id);
+    if (!$album) {
+        return response()->json(['success' => false, 'message' => 'Not Found'], 404);
+    }
+
+    // [404] 歌曲不存在，或不屬於這張專輯
+    $song = Song::where('song_id', $song_id)->where('album_id', $album->album_id)->first();
+    if (!$song) {
+        return response()->json(['success' => false, 'message' => 'Not Found'], 404);
+    }
+
+    $song->delete(); // 軟刪除
+
+    return response()->json(['success' => true], 200);
+}
+```
+
+> routes\api.php
+>
+
+```php
+Route::middleware([CheckAdmin::class])->group(function () {
+    // 加入以下 Route
+    Route::delete('/albums/{album_id}/songs/{song_id}', [SongController::class, 'destroy']);
+});
+```
+
+**驗證：** 建了 Album A / Album B 兩張專輯，歌曲屬於 A。用 B 的 `album_id` 去刪這首歌 → 正確回 404（防止跨專輯誤刪）；用正確的 A 刪除 → 200 成功；刪除後該歌曲不再出現在第 6 題的歌曲列表（`SoftDeletes` 預設查詢會自動排除軟刪除的資料）；對同一首歌再刪一次 → 正確回 404（找不到，不會噴錯）。測完把資料庫重置回乾淨狀態。
+
 ## 10. 取得歌曲資訊 (GET /api/songs/{song_id})
 
 ## 21. 更新歌曲訊息 (POST /api/albums/{album_id}/songs/{song_id})

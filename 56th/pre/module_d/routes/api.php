@@ -49,6 +49,7 @@ Route::middleware([CheckToken::class])->group(function () {
         Route::delete('/albums/{album_id}', [AlbumController::class, 'destroy']);
 
         Route::post('/albums/{album_id}/songs', [SongController::class, 'store']);
+        Route::delete('/albums/{album_id}/songs/{song_id}', [SongController::class, 'destroy']);
     });
 });
 

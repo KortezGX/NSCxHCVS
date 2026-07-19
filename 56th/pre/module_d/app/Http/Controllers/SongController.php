@@ -204,12 +204,24 @@ class SongController extends Controller
         //
     }
 
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy(Song $song)
+    // 22. 自專輯刪除歌曲 (DELETE /api/albums/{album_id}/songs/{song_id})
+    public function destroy($album_id, $song_id)
     {
-        //
+        // [404] 專輯不存在
+        $album = Album::find($album_id);
+        if (!$album) {
+            return response()->json(['success' => false, 'message' => 'Not Found'], 404);
+        }
+
+        // [404] 歌曲不存在，或不屬於這張專輯
+        $song = Song::where('song_id', $song_id)->where('album_id', $album->album_id)->first();
+        if (!$song) {
+            return response()->json(['success' => false, 'message' => 'Not Found'], 404);
+        }
+
+        $song->delete(); // 軟刪除
+
+        return response()->json(['success' => true], 200);
     }
 
     // 8.取得歌曲封面圖片 (GET /api/songs/{song_id}/cover)
