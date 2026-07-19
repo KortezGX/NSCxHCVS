@@ -46,9 +46,9 @@ class SongController extends Controller
             return response()->json(['success' => false, 'message' => 'Not Found'], 404);
         }
 
-        // 2. [400 驗證] 基本欄位檢查
+        // 2. [400 驗證] 基本欄位檢查（body 欄位缺少/格式錯誤屬於 Validation failed，Invalid parameter 專屬查詢參數）
         if (!$request->has('title') || !$request->has('duration_seconds')) {
-            return response()->json(['success' => false, 'message' => 'Invalid parameter'], 400);
+            return response()->json(['success' => false, 'message' => 'Validation failed'], 400);
         }
 
         // 3. 題目規範：驗證是否屬於這 8 大英文預設標籤（對齊 module_c_db.sql 的 labels 表）
@@ -64,7 +64,7 @@ class SongController extends Controller
 
                 // 不在 8 大預設標籤裡就噴 400
                 if (!in_array($trimmedTag, $allowedLabels)) {
-                    return response()->json(['success' => false, 'message' => 'Invalid parameter'], 400);
+                    return response()->json(['success' => false, 'message' => 'Validation failed'], 400);
                 }
 
                 if (!in_array($trimmedTag, $finalLabels)) {
@@ -75,8 +75,15 @@ class SongController extends Controller
 
         // 4. 處理實體圖片上傳
         $imagePath = null;
-        if ($request->hasFile('cover_image') && $request->file('cover_image')->isValid()) {
-            $imagePath = $request->file('cover_image')->store('covers');
+        if ($request->hasFile('cover_image')) {
+            $coverImage = $request->file('cover_image');
+
+            // [400] 檔案必須上傳成功，且格式必須是圖片
+            if (!$coverImage->isValid() || !str_starts_with($coverImage->getMimeType(), 'image/')) {
+                return response()->json(['success' => false, 'message' => 'Invalid file type'], 400);
+            }
+
+            $imagePath = $coverImage->store('covers');
         }
 
         // [400] 題目規範：一張專輯最多只能有 3 張封面圖片組合
@@ -123,8 +130,8 @@ class SongController extends Controller
                 'label'            => $song->label, // 由 Song::getLabelAttribute() 從關聯表組成純字串陣列
                 'is_cover'         => $song->is_cover,
                 'cover_image_url'  => $song->cover_image_url,
-                'created_at'       => $song->created_at->toISOString(),
-                'updated_at'       => $song->updated_at->toISOString(),
+                'created_at'       => $song->created_at->format('Y-m-d\TH:i:s.v\Z'),
+                'updated_at'       => $song->updated_at->format('Y-m-d\TH:i:s.v\Z'),
             ]
         ], 201);
     }
@@ -155,7 +162,8 @@ class SongController extends Controller
         }
 
         // with(['labels', 'album']) 預先撈好標籤跟專輯名稱，避免 map 裡面每首歌都各查一次 (N+1)
-        $query = Song::with(['labels', 'album'])->where('song_id', '>', $lastId);
+        // whereHas('album') 排除專輯已被軟刪除的孤兒歌曲，避免下面 $song->album->title 對 null 取屬性
+        $query = Song::with(['labels', 'album'])->whereHas('album')->where('song_id', '>', $lastId);
 
         // keyword 只用來比對歌名
         if (!empty($keyword)) {
@@ -223,8 +231,8 @@ class SongController extends Controller
                 'is_cover'         => $song->is_cover,
                 'lyrics'           => $song->lyrics,
                 'cover_image_url'  => $song->cover_image_url,
-                'created_at'       => $song->created_at->toISOString(),
-                'updated_at'       => $song->updated_at->toISOString(),
+                'created_at'       => $song->created_at->format('Y-m-d\TH:i:s.v\Z'),
+                'updated_at'       => $song->updated_at->format('Y-m-d\TH:i:s.v\Z'),
             ],
         ], 200);
     }
@@ -255,7 +263,7 @@ class SongController extends Controller
                 $trimmedTag = trim($tag);
 
                 if (!in_array($trimmedTag, $allowedLabels)) {
-                    return response()->json(['success' => false, 'message' => 'Invalid parameter'], 400);
+                    return response()->json(['success' => false, 'message' => 'Validation failed'], 400);
                 }
 
                 if (!in_array($trimmedTag, $finalLabels)) {
@@ -293,8 +301,15 @@ class SongController extends Controller
         }
 
         // 有上傳新圖片才覆蓋，沒有就維持原本的封面
-        if ($request->hasFile('cover_image') && $request->file('cover_image')->isValid()) {
-            $song->cover_image_path = $request->file('cover_image')->store('covers');
+        if ($request->hasFile('cover_image')) {
+            $coverImage = $request->file('cover_image');
+
+            // [400] 檔案必須上傳成功，且格式必須是圖片
+            if (!$coverImage->isValid() || !str_starts_with($coverImage->getMimeType(), 'image/')) {
+                return response()->json(['success' => false, 'message' => 'Invalid file type'], 400);
+            }
+
+            $song->cover_image_path = $coverImage->store('covers');
         }
 
         $song->save();
@@ -317,8 +332,8 @@ class SongController extends Controller
                 'label'            => $song->label,
                 'is_cover'         => $song->is_cover,
                 'cover_image_url'  => $song->cover_image_url,
-                'created_at'       => $song->created_at->toISOString(),
-                'updated_at'       => $song->updated_at->toISOString(),
+                'created_at'       => $song->created_at->format('Y-m-d\TH:i:s.v\Z'),
+                'updated_at'       => $song->updated_at->format('Y-m-d\TH:i:s.v\Z'),
             ],
         ], 200);
     }

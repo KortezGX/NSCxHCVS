@@ -46,8 +46,8 @@ class AdminController extends Controller
             $lastId = $cursorData->id;
         }
 
-        // 撈出身分為 user 的使用者，並抓出分頁 cursor 需要的資料，以及最多抓幾筆資料
-        $users = User::where('role', 'user')->where('user_id', '>', $lastId)->orderBy('user_id', 'asc')->take($limit + 1)->get();
+        // 題目要求「取得所有使用者」，所以不篩角色，抓出分頁 cursor 需要的資料，以及最多抓幾筆資料
+        $users = User::where('user_id', '>', $lastId)->orderBy('user_id', 'asc')->take($limit + 1)->get();
 
         // 判斷到底有沒有下一頁
         $hasNextPage = $users->count() > $limit;
@@ -83,7 +83,7 @@ class AdminController extends Controller
                 'email' => $user->email,
                 'role' => $user->role,
                 'is_banned' => (bool) $user->is_banned,
-                'created_at' => $user->created_at->toISOString(),
+                'created_at' => $user->created_at->format('Y-m-d\TH:i:s.v\Z'),
             ]),
             'meta' => [
                 'next_cursor' => $nextCursor,
@@ -107,7 +107,13 @@ class AdminController extends Controller
             return response()->json(['success' => false, 'message' => 'Banned user update failed'], 409);
         }
 
-        // 3. [403] 檢查是否為最後一位管理員降級
+        // 3. [400] role 必須是合法的角色值，不然存進 DB 會撞 enum constraint
+        $allowedRoles = ['admin', 'publisher', 'user'];
+        if (!in_array($request->input('role'), $allowedRoles)) {
+            return response()->json(['success' => false, 'message' => 'Validation failed'], 400);
+        }
+
+        // 4. [403] 檢查是否為最後一位管理員降級
         // 觸發條件：目前使用者是 admin，且企圖改為非 admin 角色
         if ($user->role === 'admin' && $request->input('role') !== 'admin') {
 
@@ -119,11 +125,11 @@ class AdminController extends Controller
             }
         }
 
-        // 4. 通過所有檢查，執行更新
+        // 5. 通過所有檢查，執行更新
         $user->role = $request->input('role');
         $user->save();
 
-        // 5. [200] 回傳成功回應
+        // 6. [200] 回傳成功回應
         return response()->json([
             'success' => true,
             'data' => [
@@ -133,8 +139,8 @@ class AdminController extends Controller
                 'role' => $user->role,
                 'is_banned' => (bool) $user->is_banned,
                 // 確保時間格式符合 ISO 8601 帶 Z
-                'created_at' => $user->created_at->toISOString(),
-                'updated_at' => $user->updated_at->toISOString(),
+                'created_at' => $user->created_at->format('Y-m-d\TH:i:s.v\Z'),
+                'updated_at' => $user->updated_at->format('Y-m-d\TH:i:s.v\Z'),
             ]
         ], 200);
     }
@@ -176,7 +182,7 @@ class AdminController extends Controller
                 'email' => $user->email,
                 'role' => $user->role,
                 'is_banned' => (bool) $user->is_banned, // 強制轉為 boolean 確保輸出 true
-                'updated_at' => $user->updated_at->toISOString(), // 時間格式帶 Z
+                'updated_at' => $user->updated_at->format('Y-m-d\TH:i:s.v\Z'), // 時間格式帶 Z
             ]
         ], 200);
     }
@@ -205,7 +211,7 @@ class AdminController extends Controller
                 'email' => $user->email,
                 'role' => $user->role,
                 'is_banned' => (bool) $user->is_banned, // 強制轉為 boolean 確保輸出 false
-                'updated_at' => $user->updated_at->toISOString(), // 時間格式帶 Z
+                'updated_at' => $user->updated_at->format('Y-m-d\TH:i:s.v\Z'), // 時間格式帶 Z
             ]
         ], 200);
     }

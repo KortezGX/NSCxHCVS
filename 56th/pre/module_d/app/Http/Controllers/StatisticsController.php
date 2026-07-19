@@ -68,8 +68,8 @@ class StatisticsController extends Controller
                     'username' => $album->publisher->username,
                     'email'    => $album->publisher->email,
                 ],
-                'created_at'       => $album->created_at->toISOString(),
-                'updated_at'       => $album->updated_at->toISOString(),
+                'created_at'       => $album->created_at->format('Y-m-d\TH:i:s.v\Z'),
+                'updated_at'       => $album->updated_at->format('Y-m-d\TH:i:s.v\Z'),
                 'total_view_count' => (int) $album->songs_sum_view_count,
             ]),
         ], 200);
@@ -113,8 +113,8 @@ class StatisticsController extends Controller
             'is_cover'         => $song->is_cover,
             'lyrics'           => $song->lyrics,
             'cover_image_url'  => $song->cover_image_url,
-            'created_at'       => $song->created_at->toISOString(),
-            'updated_at'       => $song->updated_at->toISOString(),
+            'created_at'       => $song->created_at->format('Y-m-d\TH:i:s.v\Z'),
+            'updated_at'       => $song->updated_at->format('Y-m-d\TH:i:s.v\Z'),
         ];
     }
 }

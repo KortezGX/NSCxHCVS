@@ -45,8 +45,8 @@ class AuthController extends Controller
                     'email'      => $user->email,
                     'role'       => $user->role,
                     // 回傳符合 ISO 8601 / JSON 規格的時間格式
-                    'created_at' => $user->created_at->toISOString(),
-                    'updated_at' => $user->updated_at->toISOString(),
+                    'created_at' => $user->created_at->format('Y-m-d\TH:i:s.v\Z'),
+                    'updated_at' => $user->updated_at->format('Y-m-d\TH:i:s.v\Z'),
                 ]
             ]
         ]);
@@ -60,8 +60,8 @@ class AuthController extends Controller
         $email = $request->input('email');
         $password = $request->input('password');
 
-        // 認證失敗 : 缺少必要欄位
-        if (empty($username) || empty($email) || empty($password)) {
+        // 認證失敗 : 缺少必要欄位，或 email 格式不正確
+        if (empty($username) || empty($email) || empty($password) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
             return response()->json(['success' => false, 'message' => 'Validation failed'], 400);
         }
 
@@ -93,8 +93,8 @@ class AuthController extends Controller
                     'email'      => $user->email,
                     'role'       => $user->role,
                     // 轉換為題目要求的 2025-10-23T15:00:00.000Z 格式
-                    'created_at' => $user->created_at->toISOString(),
-                    'updated_at' => $user->updated_at->toISOString(),
+                    'created_at' => $user->created_at->format('Y-m-d\TH:i:s.v\Z'),
+                    'updated_at' => $user->updated_at->format('Y-m-d\TH:i:s.v\Z'),
                 ]
             ]
         ], 201);

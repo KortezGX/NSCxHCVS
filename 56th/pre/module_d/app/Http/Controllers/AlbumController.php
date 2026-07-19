@@ -137,21 +137,31 @@ class AlbumController extends Controller
         // 1. 取得目前登入的使用者資料 (從 Middleware 傳進來的)
         $current_user = $request->input('current_user');
 
-        // 2. 建立一個全新的空專輯物件
+        $title = $request->input('title');
+        $artist = $request->input('artist');
+        $releaseYear = $request->input('release_year');
+        $genre = $request->input('genre');
+
+        // 2. [400 驗證] 必要欄位缺少，或 release_year 不是數字
+        if (empty($title) || empty($artist) || empty($releaseYear) || empty($genre) || !is_numeric($releaseYear)) {
+            return response()->json(['success' => false, 'message' => 'Validation failed'], 400);
+        }
+
+        // 3. 建立一個全新的空專輯物件
         $album = new Album();
 
-        // 3. 一對一指派欄位資料
+        // 4. 一對一指派欄位資料
         $album->publisher_id = $current_user->user_id; // 將建立者設定為當前登入的管理員 ID
-        $album->title        = $request->input('title');
-        $album->artist       = $request->input('artist');
-        $album->release_year = (int) $request->input('release_year'); // 強制轉成整數符合型態
-        $album->genre        = $request->input('genre');
+        $album->title        = $title;
+        $album->artist       = $artist;
+        $album->release_year = (int) $releaseYear; // 強制轉成整數符合型態
+        $album->genre        = $genre;
         $album->description  = $request->input('description');
 
-        // 4. 儲存進資料庫
+        // 5. 儲存進資料庫
         $album->save();
 
-        // 5. [201 成功] 回傳符合題目要求的 JSON 格式與 201 狀態碼
+        // 6. [201 成功] 回傳符合題目要求的 JSON 格式與 201 狀態碼
         return response()->json([
             'success' => true,
             'data' => [
@@ -166,8 +176,8 @@ class AlbumController extends Controller
                     'username' => $current_user->username,
                     'email'    => $current_user->email,
                 ],
-                'created_at'   => $album->created_at->toISOString(), // 時間格式帶 Z
-                'updated_at'   => $album->updated_at->toISOString(), // 時間格式帶 Z
+                'created_at'   => $album->created_at->format('Y-m-d\TH:i:s.v\Z'), // 時間格式帶 Z
+                'updated_at'   => $album->updated_at->format('Y-m-d\TH:i:s.v\Z'), // 時間格式帶 Z
             ]
         ], 201);
     }
@@ -196,8 +206,8 @@ class AlbumController extends Controller
                 'release_year' => $album->release_year,
                 'genre'        => $album->genre,
                 'description'  => $album->description,
-                'created_at'   => $album->created_at->toISOString(),
-                'updated_at'   => $album->updated_at->toISOString(),
+                'created_at'   => $album->created_at->format('Y-m-d\TH:i:s.v\Z'),
+                'updated_at'   => $album->updated_at->format('Y-m-d\TH:i:s.v\Z'),
                 'publisher'    => [
                     'id'       => $publisher->user_id,
                     'username' => $publisher->username,
@@ -217,9 +227,13 @@ class AlbumController extends Controller
             return response()->json(['success' => false, 'message' => 'Not Found'], 404);
         }
 
-        // 2. 手動指派更新的欄位
-        $album->title       = $request->input('title');
-        $album->description = $request->input('description');
+        // 2. 局部更新：只有帶了這個欄位才更新，沒帶的欄位維持原樣
+        if ($request->has('title')) {
+            $album->title = $request->input('title');
+        }
+        if ($request->has('description')) {
+            $album->description = $request->input('description');
+        }
 
         // 3. 儲存更新後的資料回資料庫
         $album->save();
@@ -242,8 +256,8 @@ class AlbumController extends Controller
                     'username' => $publisher->username,
                     'email'    => $publisher->email,
                 ],
-                'created_at'   => $album->created_at->toISOString(),
-                'updated_at'   => $album->updated_at->toISOString(),
+                'created_at'   => $album->created_at->format('Y-m-d\TH:i:s.v\Z'),
+                'updated_at'   => $album->updated_at->format('Y-m-d\TH:i:s.v\Z'),
             ]
         ], 200);
     }
