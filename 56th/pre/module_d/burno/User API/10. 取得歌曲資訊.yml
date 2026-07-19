@@ -1,11 +1,11 @@
 info:
-  name: 9. 使用者登出
+  name: 10. 取得歌曲資訊
   type: http
-  seq: 5
+  seq: 1
 
 http:
-  method: POST
-  url: http://127.0.0.1:8000/api/logout
+  method: GET
+  url: http://127.0.0.1:8000/api/songs/2
   headers:
     - name: X-Authorization
       value: Bearer 21232f297a57a5a743894a0e4a801fc3

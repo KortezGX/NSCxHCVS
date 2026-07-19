@@ -1,11 +1,11 @@
 info:
-  name: 8.取得歌曲封面圖片
+  name: 5.取得專輯封面圖片
   type: http
-  seq: 8
+  seq: 5
 
 http:
   method: GET
-  url: http://127.0.0.1:8000/api/songs/1/cover
+  url: http://127.0.0.1:8000/api/albums/1/cover
   auth: inherit
 
 settings:

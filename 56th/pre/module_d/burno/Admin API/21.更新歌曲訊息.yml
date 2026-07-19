@@ -1,0 +1,41 @@
+info:
+  name: 21.更新歌曲訊息
+  type: http
+  seq: 10
+
+http:
+  method: POST
+  url: http://127.0.0.1:8000/api/albums/1/songs/1
+  headers:
+    - name: Accept
+      value: application/json
+    - name: X-Authorization
+      value: Bearer 21232f297a57a5a743894a0e4a801fc3
+  body:
+    type: multipart-form
+    data:
+      - name: title
+        type: text
+        value: update_title
+      - name: duration_seconds
+        type: text
+        value: "111"
+      - name: label
+        type: text
+        value: Rock,Pop
+      - name: lyrics
+        type: text
+        value: Lyrics updated
+      - name: cover_image
+        type: text
+        value: ""
+      - name: is_cover
+        type: text
+        value: "true"
+  auth: inherit
+
+settings:
+  encodeUrl: true
+  timeout: 0
+  followRedirects: true
+  maxRedirects: 5

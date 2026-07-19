@@ -1,16 +1,20 @@
 info:
-  name: 9. 使用者登出
+  name: 11. 取得統計結果 (song)
   type: http
-  seq: 5
+  seq: 3
 
 http:
-  method: POST
-  url: http://127.0.0.1:8000/api/logout
+  method: GET
+  url: http://127.0.0.1:8000/api/statistics?metrics=song
   headers:
     - name: X-Authorization
       value: Bearer 21232f297a57a5a743894a0e4a801fc3
     - name: Accept
       value: application/json
+  params:
+    - name: metrics
+      value: song
+      type: query
   auth:
     type: bearer
     token: ""
